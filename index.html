@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로봇소프트웨어과 혁신 랩 | Precision 3D Grid</title>
+    <title>로봇소프트웨어과 혁신 랩 | Portfolio</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,14 @@
 <body>
     <header class="navbar">
         <div class="nav-container">
-            <div class="logo"><span class="logo-accent">ROBOT</span> S/W LAB.</div>
+            <div class="logo" onclick="location.href='index.html'" style="cursor:pointer">
+                <span class="logo-accent">ROBOT</span> S/W LAB.
+            </div>
+            <!-- 내비게이션 메뉴 추가 -->
+            <nav class="nav-links" style="position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 40px;">
+                <a href="index.html" style="color: #fff; text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.1em;">HOME</a>
+                <a href="board.html" style="color: rgba(255,255,255,0.5); text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.1em; transition: 0.3s;" onmouseover="this.style.color='#22c55e'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">COMMUNITY</a>
+            </nav>
         </div>
     </header>
 
@@ -34,8 +41,9 @@
             <p class="hero-subtitle">INNOVATIVE ROBOTICS LAB</p>
             <h1 class="hero-title">로봇소프트웨어과<br>창의적 혁신 랩</h1>
             <div class="hero-btns">
-                <button class="primary-btn">프로젝트 탐색</button>
-                <button class="secondary-btn">가이드북 보기</button>
+                <button class="primary-btn" onclick="const p = document.querySelectorAll('.gallery-item')[30]; p.scrollIntoView({behavior:'smooth'});">프로젝트 탐색</button>
+                <!-- 커뮤니티 바로가기 버튼 추가 -->
+                <button class="secondary-btn" onclick="location.href='board.html'">커뮤니티 바로가기</button>
             </div>
         </div>
     </section>

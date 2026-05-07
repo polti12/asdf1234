@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>커뮤니티 | 로봇소프트웨어과 혁신 랩</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { overflow-y: auto; background: #000; }
+        .board-container { max-width: 1200px; margin: 120px auto 80px; padding: 0 40px; }
+        .board-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; border-bottom: 1px solid #222; padding-bottom: 20px; }
+        .board-title { font-size: 2.5rem; font-weight: 900; }
+        .board-count { color: var(--accent); margin-left: 15px; font-size: 1.1rem; }
+        
+        .board-list { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .board-list th { text-align: left; padding: 20px; border-bottom: 2px solid #222; color: #666; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em; }
+        .board-list td { padding: 25px 20px; border-bottom: 1px solid #111; font-size: 1rem; transition: 0.3s; color: #ccc; }
+        .board-list tr:hover td { background: #080808; color: var(--accent); cursor: pointer; }
+        
+        .post-title { font-weight: 700; color: #fff; }
+        .post-meta { color: #555; font-size: 0.85rem; }
+
+        .write-btn { background: var(--accent); color: #000; padding: 12px 30px; border-radius: 4px; font-weight: 800; cursor: pointer; transition: 0.3s; border:none;}
+        .write-btn:hover { background: #fff; transform: translateY(-3px); }
+
+        .write-section { margin-top: 50px; background: #0a0a0a; padding: 40px; border-radius: 8px; border: 1px solid #222; display: none; }
+        .write-section.active { display: block; margin-bottom: 50px; }
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; margin-bottom: 10px; color: #888; font-size: 0.9rem; }
+        .form-group input, .form-group textarea { width: 100%; background: #000; border: 1px solid #333; padding: 15px; color: #fff; border-radius: 4px; outline: none; transition:0.3s; }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="logo" onclick="location.href='index.html'" style="cursor:pointer"><span class="logo-accent">ROBOT</span> S/W LAB.</div>
+            <nav class="nav-links" style="position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 40px;">
+                <a href="index.html" style="color: rgba(255,255,255,0.5); text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.1em;">HOME</a>
+                <a href="board.html" style="color: #fff; text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.1em; border-bottom: 1px solid var(--accent);">COMMUNITY</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="board-container">
+        <div class="board-header">
+            <div>
+                <h2 class="board-title">커뮤니티 <span class="board-count" id="count">0</span></h2>
+                <p style="color:#555; margin-top:10px;">로봇소프트웨어과 학생들의 실시간 혁신 기록입니다.</p>
+            </div>
+            <button class="write-btn" id="toggleWrite">글쓰기</button>
+        </div>
+
+        <div class="write-section" id="writeForm">
+            <div class="form-group">
+                <label>제목</label>
+                <input type="text" id="postTitle" placeholder="공유하고 싶은 소식을 입력하세요">
+            </div>
+            <div class="form-group">
+                <label>작성자</label>
+                <input type="text" id="postAuthor" placeholder="이름을 입력하세요">
+            </div>
+            <div class="form-group">
+                <label>내용</label>
+                <textarea id="postContent" rows="8" placeholder="상세 내용을 입력하세요"></textarea>
+            </div>
+            <div style="text-align: right;">
+                <button class="primary-btn" id="savePost" style="padding:12px 40px; font-size:1rem; cursor:pointer;">등록하기</button>
+            </div>
+        </div>
+
+        <table class="board-list">
+            <thead>
+                <tr>
+                    <th width="80">No</th>
+                    <th>제목</th>
+                    <th width="150">작성자</th>
+                    <th width="150">날짜</th>
+                </tr>
+            </thead>
+            <tbody id="postList">
+                <tr><td colspan="4" style="text-align:center; padding:50px; color:#555;">데이터를 불러오는 중...</td></tr>
+            </tbody>
+        </table>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+        // 사용자 제공 Firebase 설정
+        const firebaseConfig = {
+          apiKey: "AIzaSyAYj2PRzszEqrFW06wXVa-N1A42qOKz9k8",
+          authDomain: "board-asdf.firebaseapp.com",
+          projectId: "board-asdf",
+          storageBucket: "board-asdf.firebasestorage.app",
+          messagingSenderId: "562523444989",
+          appId: "1:562523444989:web:b045904656c52e2b545094",
+          measurementId: "G-8YZHHBJSB0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const postsCol = collection(db, 'posts');
+
+        // 리스트 실시간 업데이트
+        const postList = document.getElementById('postList');
+        const countSpan = document.getElementById('count');
+        const q = query(postsCol, orderBy('createdAt', 'desc'));
+
+        onSnapshot(q, (snapshot) => {
+            postList.innerHTML = '';
+            countSpan.textContent = snapshot.size;
+            if (snapshot.empty) {
+                postList.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:50px; color:#555;">아직 등록된 게시글이 없습니다.</td></tr>';
+                return;
+            }
+            let idx = snapshot.size;
+            snapshot.forEach((doc) => {
+                const post = doc.data();
+                const tr = document.createElement('tr');
+                const date = post.createdAt ? new Date(post.createdAt.seconds * 1000).toLocaleDateString() : '방금 전';
+                tr.innerHTML = `
+                    <td>${idx--}</td>
+                    <td><span class="post-title">${post.title}</span></td>
+                    <td class="post-meta">${post.author}</td>
+                    <td class="post-meta">${date}</td>
+                `;
+                // 클릭 시 상세 내용 (나중에 구현 가능)
+                tr.onclick = () => alert(post.content);
+                postList.appendChild(tr);
+            });
+        });
+
+        // 글 등록 로직
+        const saveBtn = document.getElementById('savePost');
+        saveBtn.addEventListener('click', async () => {
+            const title = document.getElementById('postTitle').value;
+            const author = document.getElementById('postAuthor').value;
+            const content = document.getElementById('postContent').value;
+
+            if(!title || !author || !content) return alert('모든 칸을 채워주세용!');
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = '등록 중...';
+
+            try {
+                await addDoc(postsCol, {
+                    title, author, content,
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('writeForm').classList.remove('active');
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postAuthor').value = '';
+                document.getElementById('postContent').value = '';
+                alert('글이 등록되었어용!');
+            } catch (e) {
+                console.error("Error: ", e);
+                alert('에러가 났어용.. Firestore 규칙을 확인해보세용!');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '등록하기';
+            }
+        });
+
+        // UI 토글
+        document.getElementById('toggleWrite').addEventListener('click', () => {
+            document.getElementById('writeForm').classList.toggle('active');
+        });
+    </script>
+</body>
+</html>
