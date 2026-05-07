@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로봇소프트웨어과 혁신 랩 | Precision 3D Grid</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;950&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="logo"><span class="logo-accent">ROBOT</span> S/W LAB.</div>
+        </div>
+    </header>
+
+    <section class="antigravity-section">
+        <div class="gallery-wrapper" id="agWrapper">
+            <!-- Strict Grid Items Generation -->
+            <script>
+                const grid = document.getElementById('agWrapper');
+                for(let i=1; i<=60; i++) {
+                    const el = document.createElement('div');
+                    el.className = 'gallery-item';
+                    el.innerHTML = `<div class="img-box"><img src="https://picsum.photos/1000/700?r=${i}"></div>`;
+                    grid.appendChild(el);
+                }
+            </script>
+        </div>
+
+        <div class="hero-overlay-ui">
+            <p class="hero-subtitle">INNOVATIVE ROBOTICS LAB</p>
+            <h1 class="hero-title">로봇소프트웨어과<br>창의적 혁신 랩</h1>
+            <div class="hero-btns">
+                <button class="primary-btn">프로젝트 탐색</button>
+                <button class="secondary-btn">가이드북 보기</button>
+            </div>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+</html>
