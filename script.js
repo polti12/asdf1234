@@ -308,19 +308,23 @@ document.getElementById('toolClear').addEventListener('click', () => {
     }
 });
 
+const mySessionId = myUserId + '_' + Date.now();
+
 function startDraw(e) { 
     isDrawing = true; 
     
     // 스로틀 타이머 시작
     throttleInterval = setInterval(() => {
-        if(throttleBuffer.length > 0) {
+        if(throttleBuffer.length > 1) { // 이어질 궤적이 있어야 하므로 1 초과 확인
             push(ref(db, `whiteboards/${currentBoardId}/stream`), {
+                session: mySessionId,
                 tool: currentTool,
                 color: currentColor,
                 width: currentLineWidth,
                 points: throttleBuffer
             });
-            throttleBuffer = []; // 버퍼 비우기
+            // 점이 뚝뚝 끊기는 현상을 방지하기 위해 버퍼의 [마지막 점]을 다음 버퍼의 [시작점]으로 이관함!
+            throttleBuffer = [throttleBuffer[throttleBuffer.length - 1]]; 
         }
     }, THROTTLE_MS);
     
@@ -334,9 +338,9 @@ function endDraw() {
     
     // 남은 버퍼 전송 후 타이머 해제
     clearInterval(throttleInterval);
-    if(throttleBuffer.length > 0) {
+    if(throttleBuffer.length > 1) {
         push(ref(db, `whiteboards/${currentBoardId}/stream`), {
-            tool: currentTool, color: currentColor, width: currentLineWidth, points: throttleBuffer
+            session: mySessionId, tool: currentTool, color: currentColor, width: currentLineWidth, points: throttleBuffer
         });
         throttleBuffer = [];
     }
@@ -376,8 +380,6 @@ canvas.addEventListener('touchmove', draw, { passive: false });
 function startBoardSync() {
     const streamRef = ref(db, `whiteboards/${currentBoardId}/stream`);
     
-    // 이전에 발생했던 이벤트 말고 지금부터 생성되는 이벤트만 캐치 (onChildAdded 특성 유의)
-    // 실제 프로덕션에서는 limitToLast() 등을 활용
     streamUnsubscribe = onChildAdded(streamRef, (snapshot) => {
         const data = snapshot.val();
         
@@ -387,15 +389,18 @@ function startBoardSync() {
             return;
         }
 
+        // 내가 막 그린 선 데이터가 돌아오는 반향(Echo) 무시 - 끊김/스퍼터링 완벽 방지
+        if (data.session === mySessionId) return;
+
         const pts = data.points;
-        if(!pts || pts.length === 0) return;
+        if(!pts || pts.length < 2) return; // 선분이 안되는 건 무시
 
         ctx.beginPath();
         ctx.lineWidth = data.width;
         ctx.lineCap = 'round';
         ctx.strokeStyle = data.tool === 'eraser' ? '#ffffff' : data.color;
         
-        // 경로 그리기 복원
+        // 부드럽게 복원
         ctx.moveTo(pts[0].x, pts[0].y);
         for(let i=1; i<pts.length; i++){
             ctx.lineTo(pts[i].x, pts[i].y);
