@@ -54,15 +54,14 @@ function generate3DGrid(boardsObj) {
         const el = document.createElement('div');
         el.className = 'gallery-item';
         el.dataset.id = board.id;
-        let statusText = board.owner === myUserId ? '내 보드' : '참여 요청하기';
 
-        el.innerHTML = `<div class="img-box"><canvas class="thumb-canvas" id="thumb-${board.id}"></canvas><div class="item-overlay">${board.id}<div class="status">${statusText}</div></div></div>`;
+        el.innerHTML = `<div class="img-box"><canvas class="thumb-canvas" id="thumb-${board.id}"></canvas><div class="item-overlay">${board.id}</div></div>`;
         el.style.setProperty('--bx', `${xPos}px`); el.style.setProperty('--by', `${yPos}px`); el.style.setProperty('--bz', `${zPos}px`); el.style.setProperty('--ax', `${angleX}deg`); el.style.setProperty('--ay', `${angleY}deg`);
         el.style.transform = `translate3d(${xPos}px, ${yPos}px, ${zPos}px) rotateX(${angleX}deg) rotateY(${angleY}deg)`;
         
         agWrapper.appendChild(el);
 
-        // 썸네일 동기화 및 더미 패턴 그리기
+        // 썸네일 동기화 및 더미 패턴, 실시간 스트림 연결
         const tCanvas = document.getElementById(`thumb-${board.id}`);
         if(tCanvas) {
             tCanvas.width = 600; tCanvas.height = 400;
@@ -72,19 +71,28 @@ function generate3DGrid(boardsObj) {
                 img.onload = () => tCtx.drawImage(img, 0, 0, 600, 400);
                 img.src = board.thumbnail;
             } else {
-                // 그림이 없는 보드는 컬러풀한 추상화 더미 패턴 그리기
-                tCtx.fillStyle = '#ffffff';
-                tCtx.fillRect(0,0, 600, 400);
-                tCtx.lineWidth = 15;
-                tCtx.lineCap = 'round';
-                tCtx.strokeStyle = `hsl(${Math.random()*360}, 80%, 70%)`;
-                tCtx.beginPath();
-                tCtx.moveTo(Math.random()*600, Math.random()*400);
-                for(let k=0; k<3; k++) {
-                    tCtx.quadraticCurveTo(Math.random()*600, Math.random()*400, Math.random()*600, Math.random()*400);
-                }
-                tCtx.stroke();
+                tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0, 600, 400);
             }
+
+            // 로비에서 이 칠판이 그려지는걸 실시간으로 보여주는 라이브 썸네일
+            onChildAdded(ref(db, `streams/${board.id}`), (snapshot) => {
+                const data = snapshot.val();
+                if (data.action === 'clear') { tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0,600,400); return; }
+                const pts = data.points;
+                if(!pts || pts.length < 2) return;
+                
+                const scaleX = 600 / (data.canvasW || 1920);
+                const scaleY = 400 / (data.canvasH || 1080);
+                
+                tCtx.beginPath();
+                tCtx.lineWidth = data.width * ((scaleX + scaleY) / 2);
+                tCtx.lineCap = 'round'; tCtx.lineJoin = 'round';
+                tCtx.strokeStyle = data.tool === 'eraser' ? '#ffffff' : data.color;
+                tCtx.moveTo(pts[0].x * scaleX, pts[0].y * scaleY);
+                for(let i=1; i<pts.length; i++) tCtx.lineTo(pts[i].x * scaleX, pts[i].y * scaleY);
+                tCtx.stroke();
+                tCtx.beginPath();
+            });
         }
         el.addEventListener('click', () => handleBoardClick(board));
     });
@@ -107,71 +115,43 @@ function animate3D() {
 }
 animate3D();
 
-// RTDB 로비 감지 (빈 DB일 경우 자동 생성)
+// RTDB 로비 감지 (빈 DB일 경우 자동 생성 및 2시간 경과 보드 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
     const data = snapshot.val();
+    let updates = {};
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    
     if (!data) {
-        // 비어있으면 40개의 의미없는(더미) 보드 자동 생성
-        let updates = {};
+        // 비어있으면 40개의 완전 빈 보드 자동 생성
         for(let i=1; i<=40; i++) {
-            updates[`Gallery-${i}`] = {
-                owner: 'System', createdAt: Date.now(), thumbnail: ""
-            };
+            updates[`Gallery-${i}`] = { createdAt: Date.now(), thumbnail: "" };
         }
         update(ref(db, 'whiteboards'), updates);
         return; 
     }
+    
+    // 2시간이 지난 보드는 초기화 로직
+    const now = Date.now();
+    let didReset = false;
+    Object.keys(data).forEach(key => {
+        if (now - data[key].createdAt > TWO_HOURS_MS) {
+            updates[key] = { createdAt: now, thumbnail: "" };
+            remove(ref(db, `streams/${key}`));
+            didReset = true;
+        }
+    });
+    
+    if(didReset) {
+        update(ref(db, 'whiteboards'), updates);
+    }
+
     generate3DGrid(data); // 방 목록 및 썸네일 새로고침
 });
 
-// 새 캔버스 만들기
-document.getElementById('createNewBoardBtn').addEventListener('click', async () => {
-    const boardName = prompt("새 캔버스 이름을 입력하세요:", "Board-" + Math.floor(Math.random()*1000));
-    if(!boardName) return;
-    try {
-        await set(ref(db, `whiteboards/${boardName}`), {
-            owner: myUserId,
-            createdAt: Date.now(),
-            thumbnail: ""
-        });
-        lobbyNotice.style.color = "#10b981"; lobbyNotice.textContent = "캔버스가 생성되었습니다!";
-        setTimeout(() => { lobbyNotice.textContent = ""; }, 3000);
-    } catch (e) {
-        lobbyNotice.style.color = "#ef4444"; lobbyNotice.textContent = "생성 오류: " + e.message;
-    }
-});
 
-
-// --- Click & Permission Logic (RTDB 방식 전환) ---
-async function handleBoardClick(board) {
-    if (board.owner === myUserId) {
-        enterWhiteboard(board.id, true);
-    } else {
-        // 이미 승인되었는지 체크
-        if(board.requests && board.requests[myUserId] === 'approved') {
-            enterWhiteboard(board.id, false);
-            return;
-        }
-        // 권한 요청
-        lobbyNotice.style.color = "#3b82f6";
-        lobbyNotice.textContent = `'${board.id}' 보드 참여 허가를 방장님께 요청했습니다...`;
-        
-        const reqRef = ref(db, `whiteboards/${board.id}/requests/${myUserId}`);
-        await set(reqRef, 'pending');
-
-        // 승인 감지
-        const unsubReq = onValue(reqRef, (s) => {
-            if (s.val() === 'approved') {
-                lobbyNotice.style.color = "#10b981"; lobbyNotice.textContent = "주인이 허가했습니다! 입장합니다.";
-                unsubReq(); // 구독 취소
-                setTimeout(() => { lobbyNotice.textContent = ""; enterWhiteboard(board.id, false); }, 1000);
-            } else if (s.val() === 'rejected') {
-                lobbyNotice.style.color = "#ef4444"; lobbyNotice.textContent = "참여가 거절되었습니다.";
-                unsubReq();
-                setTimeout(() => { lobbyNotice.textContent = ""; }, 3000);
-            }
-        });
-    }
+// --- Click & Permission Logic (자유 입장 전환) ---
+function handleBoardClick(board) {
+    enterWhiteboard(board.id);
 }
 
 
@@ -182,10 +162,9 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true });
 const permissionPanel = document.getElementById('permissionRequestsPanel');
 const requestsList = document.getElementById('requestsList');
 
-function enterWhiteboard(boardId, iAmOwner) {
+function enterWhiteboard(boardId) {
     currentBoardId = boardId;
-    isOwner = iAmOwner;
-    document.getElementById('currentBoardName').textContent = boardId + (isOwner ? ' (방장)' : '');
+    document.getElementById('currentBoardName').textContent = boardId;
     // 색 변경 처리 (기본 화이트 캔버스 설정)
     document.getElementById('toolPen').click();
     
@@ -198,7 +177,6 @@ function enterWhiteboard(boardId, iAmOwner) {
         ctx.fillRect(0,0, canvas.width, canvas.height);
 
         startBoardSync();
-        if (isOwner) listenForRequests();
     }, 300);
 }
 
@@ -226,34 +204,7 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', () => { if(whiteboardView.classList.contains('active')) resizeCanvas(); });
 
-// Permission System for Owner
-function listenForRequests() {
-    permissionPanel.style.display = 'block';
-    const reqsRef = ref(db, `whiteboards/${currentBoardId}/requests`);
-    permissionUnsubscribe = onValue(reqsRef, (snap) => {
-        requestsList.innerHTML = '';
-        const requests = snap.val() || {};
-        let pendingCount = 0;
-        
-        Object.keys(requests).forEach(uid => {
-            if (requests[uid] === 'pending') {
-                pendingCount++;
-                const div = document.createElement('div');
-                div.className = 'req-item';
-                div.innerHTML = `<span>${uid}</span> 
-                    <div class="req-btns">
-                        <button class="req-btn accept" onclick="window.acceptReq('${uid}')">수락</button>
-                        <button class="req-btn reject" onclick="window.rejectReq('${uid}')">거절</button>
-                    </div>`;
-                requestsList.appendChild(div);
-            }
-        });
-        if(pendingCount === 0) { requestsList.innerHTML = '<span style="color:#666; font-size:0.8rem;">대기열이 없습니다.</span>'; }
-    });
-}
 
-window.acceptReq = (uid) => set(ref(db, `whiteboards/${currentBoardId}/requests/${uid}`), 'approved');
-window.rejectReq = (uid) => set(ref(db, `whiteboards/${currentBoardId}/requests/${uid}`), 'rejected');
 
 
 // --- 🔥 "진짜 실시간" 드로잉 스로틀링(Throttling) 로직 🔥 ---
@@ -304,7 +255,7 @@ document.getElementById('toolClear').addEventListener('click', () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0,0, canvas.width, canvas.height);
         // 전체 지우기 이벤트 발행
-        push(ref(db, `whiteboards/${currentBoardId}/stream`), { action: 'clear' });
+        push(ref(db, `streams/${currentBoardId}`), { action: 'clear' });
     }
 });
 
@@ -316,11 +267,10 @@ function startDraw(e) {
     // 스로틀 타이머 시작
     throttleInterval = setInterval(() => {
         if(throttleBuffer.length > 1) { // 이어질 궤적이 있어야 하므로 1 초과 확인
-            push(ref(db, `whiteboards/${currentBoardId}/stream`), {
+            push(ref(db, `streams/${currentBoardId}`), {
                 session: mySessionId,
-                tool: currentTool,
-                color: currentColor,
-                width: currentLineWidth,
+                tool: currentTool, color: currentColor, width: currentLineWidth,
+                canvasW: canvas.width, canvasH: canvas.height,
                 points: throttleBuffer
             });
             // 점이 뚝뚝 끊기는 현상을 방지하기 위해 버퍼의 [마지막 점]을 다음 버퍼의 [시작점]으로 이관함!
@@ -339,8 +289,10 @@ function endDraw() {
     // 남은 버퍼 전송 후 타이머 해제
     clearInterval(throttleInterval);
     if(throttleBuffer.length > 1) {
-        push(ref(db, `whiteboards/${currentBoardId}/stream`), {
-            session: mySessionId, tool: currentTool, color: currentColor, width: currentLineWidth, points: throttleBuffer
+        push(ref(db, `streams/${currentBoardId}`), {
+            session: mySessionId, tool: currentTool, color: currentColor, width: currentLineWidth,
+            canvasW: canvas.width, canvasH: canvas.height,
+            points: throttleBuffer
         });
         throttleBuffer = [];
     }
@@ -357,6 +309,7 @@ function draw(e, isStart = false) {
 
     ctx.lineWidth = currentLineWidth;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round'; // 이 속성이 있어야 꺾이는 부분이 매끄럽게 연결됨!
     ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
 
     if(!isStart) {
@@ -378,7 +331,7 @@ canvas.addEventListener('touchmove', draw, { passive: false });
 
 // 타인이 그리는 선 실시간 수신 렌더링
 function startBoardSync() {
-    const streamRef = ref(db, `whiteboards/${currentBoardId}/stream`);
+    const streamRef = ref(db, `streams/${currentBoardId}`);
     
     streamUnsubscribe = onChildAdded(streamRef, (snapshot) => {
         const data = snapshot.val();
@@ -398,6 +351,7 @@ function startBoardSync() {
         ctx.beginPath();
         ctx.lineWidth = data.width;
         ctx.lineCap = 'round';
+        ctx.lineJoin = 'round'; // 원격에서도 매끄럽게 연결
         ctx.strokeStyle = data.tool === 'eraser' ? '#ffffff' : data.color;
         
         // 부드럽게 복원

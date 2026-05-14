@@ -19,10 +19,7 @@
             <div class="logo">
                 <span class="logo-accent">CANVAS</span> EXPLORER
             </div>
-            <p class="lobby-hint">떠다니는 보드를 클릭하면 참여를 요청합니다</p>
-            <div style="margin-top: 20px;">
-                <button id="createNewBoardBtn" class="primary-btn"><i class="fa-solid fa-plus"></i> 새 캔버스 만들기</button>
-            </div>
+            <p class="lobby-hint">아무 보드나 자유롭게 들어가서 그림을 그려보세요! (2시간마다 초기화)</p>
             <div id="lobbyNotice" class="notice-msg"></div>
         </header>
 
@@ -73,12 +70,6 @@
             <div class="canvas-container" id="canvasContainer">
                 <canvas id="drawingCanvas"></canvas>
             </div>
-        </div>
-        
-        <!-- 권한 요청 알림 패널 (방장용) -->
-        <div id="permissionRequestsPanel" class="permission-panel">
-            <h4>요청 대기열</h4>
-            <div id="requestsList"></div>
         </div>
     </div>
 
