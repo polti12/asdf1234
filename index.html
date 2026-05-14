@@ -3,51 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로봇소프트웨어과 혁신 랩 | Portfolio</title>
+    <title>3D Whiteboard Explorer</title>
+    <meta name="description" content="인터랙티브 3D 화이트보드 탐색기">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;950&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header class="navbar">
-        <div class="nav-container">
-            <div class="logo" onclick="location.href='index.html'" style="cursor:pointer">
-                <span class="logo-accent">ROBOT</span> S/W LAB.
+
+    <!-- Main 3D Gallery Lobby -->
+    <div id="lobbyView" class="view-container active">
+        <header class="lobby-header">
+            <div class="logo">
+                <span class="logo-accent">CANVAS</span> EXPLORER
             </div>
-            <!-- 내비게이션 메뉴 추가 -->
-            <nav class="nav-links" style="position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 40px;">
-                <a href="index.html" style="color: #fff; text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.1em;">HOME</a>
-                <a href="board.html" style="color: rgba(255,255,255,0.5); text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.1em; transition: 0.3s;" onmouseover="this.style.color='#22c55e'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">COMMUNITY</a>
-            </nav>
-        </div>
-    </header>
+            <p class="lobby-hint">떠다니는 보드를 클릭하면 참여를 요청합니다</p>
+            <div style="margin-top: 20px;">
+                <button id="createNewBoardBtn" class="primary-btn"><i class="fa-solid fa-plus"></i> 새 캔버스 만들기</button>
+            </div>
+            <div id="lobbyNotice" class="notice-msg"></div>
+        </header>
 
-    <section class="antigravity-section">
-        <div class="gallery-wrapper" id="agWrapper">
-            <!-- Strict Grid Items Generation -->
-            <script>
-                const grid = document.getElementById('agWrapper');
-                for(let i=1; i<=60; i++) {
-                    const el = document.createElement('div');
-                    el.className = 'gallery-item';
-                    el.innerHTML = `<div class="img-box"><img src="https://picsum.photos/1000/700?r=${i}"></div>`;
-                    grid.appendChild(el);
-                }
-            </script>
-        </div>
+        <section class="antigravity-section">
+            <div class="gallery-wrapper" id="agWrapper">
+                <!-- script에서 동적 생성 -->
+            </div>
+        </section>
+    </div>
 
-        <div class="hero-overlay-ui">
-            <p class="hero-subtitle">INNOVATIVE ROBOTICS LAB</p>
-            <h1 class="hero-title">로봇소프트웨어과<br>창의적 혁신 랩</h1>
-            <div class="hero-btns">
-                <button class="primary-btn" onclick="const p = document.querySelectorAll('.gallery-item')[30]; p.scrollIntoView({behavior:'smooth'});">프로젝트 탐색</button>
-                <!-- 커뮤니티 바로가기 버튼 추가 -->
-                <button class="secondary-btn" onclick="location.href='board.html'">커뮤니티 바로가기</button>
+    <!-- Whiteboard Interactive View (Overlay) -->
+    <div id="whiteboardView" class="view-container">
+        <div class="wb-header">
+            <div class="wb-title">
+                <span id="currentBoardName">Board</span>
+            </div>
+            <div class="wb-actions">
+                <button id="closeBoardBtn" class="action-btn outline-btn"><i class="fa-solid fa-arrow-left"></i> 로비로 돌아가기</button>
             </div>
         </div>
-    </section>
 
-    <script src="script.js"></script>
+        <div class="wb-workspace">
+            <aside class="wb-toolbar">
+                <div class="tool-group">
+                    <button class="tool-btn active" id="toolPen" title="펜"><i class="fa-solid fa-pen"></i></button>
+                    <button class="tool-btn" id="toolEraser" title="지우개"><i class="fa-solid fa-eraser"></i></button>
+                </div>
+                <div class="divider"></div>
+                <div class="tool-group colors">
+                    <button class="color-btn active" data-color="#ffffff" style="background: #ffffff;"></button>
+                    <button class="color-btn" data-color="#ef4444" style="background: #ef4444;"></button>
+                    <button class="color-btn" data-color="#10b981" style="background: #10b981;"></button>
+                    <button class="color-btn" data-color="#3b82f6" style="background: #3b82f6;"></button>
+                    <button class="color-btn" data-color="#f59e0b" style="background: #f59e0b;"></button>
+                </div>
+                <div class="divider"></div>
+                <div class="tool-group flex-col">
+                    <label class="tool-label">굵기</label>
+                    <input type="range" id="lineWidth" min="1" max="50" value="5">
+                </div>
+                <div class="divider"></div>
+                <div class="tool-group">
+                    <button class="tool-btn danger" id="toolClear" title="모두 지우기"><i class="fa-solid fa-trash-can"></i></button>
+                    <button class="tool-btn save" id="toolSave" title="이미지로 저장"><i class="fa-solid fa-download"></i></button>
+                </div>
+            </aside>
+
+            <div class="canvas-container" id="canvasContainer">
+                <canvas id="drawingCanvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- 권한 요청 알림 패널 (방장용) -->
+        <div id="permissionRequestsPanel" class="permission-panel">
+            <h4>요청 대기열</h4>
+            <div id="requestsList"></div>
+        </div>
+    </div>
+
+    <!-- type="module" 필수 -->
+    <script type="module" src="script.js"></script>
 </body>
 </html>
