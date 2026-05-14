@@ -115,37 +115,38 @@ function animate3D() {
 }
 animate3D();
 
-// RTDB 로비 감지 (빈 DB일 경우 자동 생성 및 2시간 경과 보드 리셋)
+// RTDB 로비 감지 (하드코딩 40개 유지 및 2시간 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
-    const data = snapshot.val();
+    const data = snapshot.val() || {};
     let updates = {};
     const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-    
-    if (!data) {
-        // 비어있으면 40개의 완전 빈 보드 자동 생성
-        for(let i=1; i<=40; i++) {
-            updates[`Gallery-${i}`] = { createdAt: Date.now(), thumbnail: "" };
-        }
-        update(ref(db, 'whiteboards'), updates);
-        return; 
-    }
-    
-    // 2시간이 지난 보드는 초기화 로직
     const now = Date.now();
     let didReset = false;
-    Object.keys(data).forEach(key => {
-        if (now - data[key].createdAt > TWO_HOURS_MS) {
+    
+    // 항상 Gallery-1부터 Gallery-40까지 무조건 채워넣기 보장
+    for(let i=1; i<=40; i++) {
+        const key = `Gallery-${i}`;
+        if (!data[key]) {
+            updates[key] = { createdAt: now, thumbnail: "" };
+            didReset = true;
+        } else if (now - data[key].createdAt > TWO_HOURS_MS) {
             updates[key] = { createdAt: now, thumbnail: "" };
             remove(ref(db, `streams/${key}`));
             didReset = true;
         }
-    });
+    }
     
     if(didReset) {
         update(ref(db, 'whiteboards'), updates);
+        return; // 업데이트 시 onValue가 새로 트리거되므로 렌더링 스킵
     }
 
-    generate3DGrid(data); // 방 목록 및 썸네일 새로고침
+    // 예전에 만들어둔 잡다한 보드 찌꺼기 무시하고 딱 40개만 렌더링
+    const finalData = {};
+    for(let i=1; i<=40; i++) {
+        finalData[`Gallery-${i}`] = data[`Gallery-${i}`];
+    }
+    generate3DGrid(finalData); // 방 목록 및 썸네일 새로고침
 });
 
 
@@ -159,8 +160,6 @@ function handleBoardClick(board) {
 const canvasContainer = document.getElementById('canvasContainer');
 const canvas = document.getElementById('drawingCanvas');
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
-const permissionPanel = document.getElementById('permissionRequestsPanel');
-const requestsList = document.getElementById('requestsList');
 
 function enterWhiteboard(boardId) {
     currentBoardId = boardId;
@@ -186,8 +185,6 @@ document.getElementById('closeBoardBtn').addEventListener('click', async () => {
     await update(ref(db, `whiteboards/${currentBoardId}`), { thumbnail: dataURL });
 
     if (streamUnsubscribe) streamUnsubscribe();
-    if (permissionUnsubscribe) permissionUnsubscribe();
-    permissionPanel.style.display = 'none';
 
     whiteboardView.classList.remove('active');
     setTimeout(() => {
