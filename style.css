@@ -10,7 +10,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { 
-    background: var(--bg-dark); color: var(--text-primary); 
+    background: radial-gradient(circle at center, #1a1e29 0%, #050505 100%); color: var(--text-primary); 
     font-family: var(--font-main); overflow: hidden; width: 100vw; height: 100vh;
 }
 
@@ -32,15 +32,14 @@ body {
 .gallery-wrapper { position: absolute; top: 50%; left: 50%; transform-style: preserve-3d; will-change: transform; pointer-events: none; }
 
 .gallery-item { position: absolute; width: 600px; height: 400px; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; cursor: pointer; pointer-events: auto; }
-.img-box { width: 100%; height: 100%; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.8); transform-style: preserve-3d; transition: 0.4s ease; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; position: relative; }
-/* 변경: 화이트보드 썸네일도 본판과 동일하게 화이트 톤으로 변경 */
-.thumb-canvas { width: 100%; height: 100%; background: #ffffff; }
+.img-box { width: 100%; height: 100%; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.9), 0 0 20px rgba(255,255,255,0.05); transform-style: preserve-3d; transition: 0.4s ease; border: 8px solid #1a1a2e; display: flex; align-items: center; justify-content: center; position: relative; }
+.thumb-canvas { width: 100%; height: 100%; background-color: #ffffff; background-image: radial-gradient(#e5e7eb 2px, transparent 2px); background-size: 30px 30px; }
 
-.item-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; font-size: 1.2rem; font-weight: 700; color: #fff; backdrop-filter: blur(2px); }
-.item-overlay .status { font-size: 0.8rem; color: var(--accent); margin-top: 10px; font-weight: 600; background: rgba(59,130,246,0.2); padding: 5px 10px; border-radius: 12px;}
+.board-badge { position: absolute; bottom: -50px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.05); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 1.2rem; pointer-events: none; transition: 0.3s; white-space: nowrap; }
+
 .gallery-item:hover { z-index: 10000; }
-.gallery-item:hover .img-box { border: 2px solid var(--accent); transform: scale(1.05); }
-.gallery-item:hover .item-overlay { opacity: 1; }
+.gallery-item:hover .img-box { border-color: var(--accent); transform: scale(1.05) translateY(-10px); box-shadow: 0 40px 100px rgba(59, 130, 246, 0.4); }
+.gallery-item:hover .board-badge { background: var(--accent); border-color: var(--accent); color: #fff; transform: translateX(-50%) scale(1.1); }
 
 /* -----------------------------------
    Whiteboard Interactive View
@@ -67,8 +66,8 @@ body {
 .color-btn.active { border-color: #3b82f6; transform: scale(1.15); box-shadow: 0 0 10px rgba(255,255,255,0.3); }
 
 .tool-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 700; }
-input[type=range] { -webkit-appearance: none; width: 50px; background: transparent; transform: rotate(-90deg) translate(-20px, 0); margin: 30px 0; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #ffffff; cursor: pointer; margin-top: -5px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 50px; background: transparent; transform: rotate(-90deg) translate(-20px, 0); margin: 30px 0; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #ffffff; cursor: pointer; margin-top: -5px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #333; border-radius: 2px; }
 
 /* 변경: 캔버스 배경 화이트 테마 적용 */
