@@ -37,7 +37,7 @@ let streamUnsubscribe = null;
 let permissionUnsubscribe = null;
 
 // --- 3D Gallery (Lobby) Dynamic Generation (RTDB) ---
-const cols = 8, rows = 5, arcWidth = 6000, arcDepth = 2500, verticalGap = 800;
+const cols = 8, rows = 5, arcWidth = 3500, arcDepth = 1500, verticalGap = 500;
 
 function generate3DGrid(boardsObj) {
     agWrapper.innerHTML = '';
@@ -104,7 +104,7 @@ window.addEventListener('mousemove', (e) => {
     if(!lobbyView.classList.contains('active')) return;
     const x = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
     const y = (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
-    mX = x * -2000; mY = y * -1500; rY = x * 30; rX = y * -15;
+    mX = x * -900; mY = y * -600; rY = x * 15; rX = y * -8;
 });
 function animate3D() {
     if(lobbyView.classList.contains('active') && agWrapper) {
