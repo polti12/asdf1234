@@ -10,7 +10,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { 
-    background: radial-gradient(circle at center, #1a1e29 0%, #050505 100%); color: var(--text-primary); 
+    background: radial-gradient(circle at center, #2c3e50 0%, #0d1217 100%); color: var(--text-primary); 
     font-family: var(--font-main); overflow: hidden; width: 100vw; height: 100vh;
 }
 

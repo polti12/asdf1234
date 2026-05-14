@@ -72,6 +72,23 @@ function generate3DGrid(boardsObj) {
                 img.src = board.thumbnail;
             } else {
                 tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0, 600, 400);
+
+                // 빈 보드를 덜 어색하게 만들기 위한 "대충 낙서" 효과
+                tCtx.strokeStyle = '#e2e8f0'; // 눈 아프지 않은 연한 회색
+                tCtx.lineWidth = 10; 
+                tCtx.lineCap = 'round'; tCtx.lineJoin = 'round';
+                tCtx.beginPath();
+                const sx = 150 + Math.random() * 100;
+                const sy = 150 + Math.random() * 100;
+                tCtx.moveTo(sx, sy);
+                for(let i=0; i<3; i++) {
+                    tCtx.bezierCurveTo(
+                        sx + Math.random() * 300 - 150, sy + Math.random() * 300 - 150,
+                        sx + Math.random() * 300 - 150, sy + Math.random() * 300 - 150,
+                        sx + Math.random() * 200 - 100, sy + Math.random() * 200 - 100
+                    );
+                }
+                tCtx.stroke();
             }
 
             // 로비에서 이 칠판이 그려지는걸 실시간으로 보여주는 라이브 썸네일
