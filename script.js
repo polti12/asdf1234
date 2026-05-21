@@ -24,6 +24,7 @@ if (!sessionStorage.getItem('myUserId')) {
     sessionStorage.setItem('myUserId', 'Guest_' + Math.floor(Math.random() * 10000));
 }
 const myUserId = sessionStorage.getItem('myUserId');
+loadPosts(); // Initial load of community posts
 
 // DOM Elements
 const lobbyView = document.getElementById('lobbyView');
@@ -41,83 +42,52 @@ let permissionUnsubscribe = null;
 
 // --- View & Navigation Management ---
 function switchView(viewId) {
-    document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-    const target = document.getElementById(viewId);
-    if(target) target.classList.add('active');
-    
-    if(viewId === 'communityView') {
-        loadPosts();
+    // SPA Vertical Scroll logic
+    if(viewId === 'lobbyView') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if(viewId === 'communityView') {
+        const target = document.getElementById('communityView');
+        if(target) target.scrollIntoView({ behavior: 'smooth' });
+    } else if(viewId === 'whiteboardView') {
+        document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+        document.getElementById('whiteboardView').classList.add('active');
+        document.body.style.overflow = 'hidden'; // Stop scroll during whiteboard
     }
 }
 
-// --- Visual Board Selector logic ---
+function exitWhiteboard() {
+    document.getElementById('whiteboardView').classList.remove('active');
+    document.body.style.overflow = 'auto';
+    currentBoardId = null;
+}
+
+// --- Visual Board Selection Mode ---
+let isSelectionMode = false;
 let selectedSnapshotData = null;
 let selectedSnapshotBoardId = null;
 
-function openBoardSelector() {
-    const grid = document.getElementById('selectorGrid');
-    if(!grid) return;
-    grid.innerHTML = '';
+function enterSelectionMode() {
+    isSelectionMode = true;
+    switchView('lobbyView');
     
-    for(let i=1; i<=40; i++) {
-        const item = document.createElement('div');
-        item.className = 'selector-item';
-        
-        const thumb = document.createElement('div');
-        thumb.className = 'selector-thumb';
-        
-        const boardRef = ref(db, `boards/board${i}/thumbnail`);
-        get(boardRef).then(snapshot => {
-            const dataUrl = snapshot.val();
-            if(dataUrl) {
-                const img = document.createElement('img');
-                img.src = dataUrl;
-                img.style.width = '100%';
-                img.style.height = '100%';
-                img.style.objectFit = 'cover';
-                thumb.appendChild(img);
-            }
-        });
-        
-        const label = document.createElement('div');
-        label.className = 'selector-label';
-        label.innerText = `BOARD ${i}`;
-        
-        item.appendChild(thumb);
-        item.appendChild(label);
-        
-        item.onclick = () => selectBoardForPost(i);
-        grid.appendChild(item);
+    // 안내 메시지 표시
+    const notice = document.getElementById('lobbyNotice');
+    if(notice) {
+        notice.innerText = "아카이브할 보드를 선택해주세요.";
+        notice.classList.add('visible');
     }
-    
-    document.getElementById('boardSelectorModal').classList.add('active');
 }
 
-function selectBoardForPost(boardId) {
-    selectedSnapshotBoardId = boardId;
-    document.getElementById('boardSelectorModal').classList.remove('active');
+function enterBoard(boardIdString) {
+    const bId = parseInt(boardIdString.replace('board',''));
+    if(isSelectionMode) {
+        selectBoardForPost(bId);
+        return;
+    }
     
-    const boardRef = ref(db, `boards/board${boardId}/thumbnail`);
-    get(boardRef).then(snapshot => {
-        selectedSnapshotData = snapshot.val();
-        
-        const titleEl = document.getElementById('selectedBoardTitle');
-        if(titleEl) titleEl.innerText = `BOARD ${boardId} SNAPSHOT`;
-        
-        const preview = document.getElementById('snapshotPreview');
-        if(preview) {
-            preview.innerHTML = '';
-            if(selectedSnapshotData) {
-                const img = document.createElement('img');
-                img.src = selectedSnapshotData;
-                preview.appendChild(img);
-            } else {
-                preview.innerText = '스냅샷 데이터가 없습니다.';
-            }
-        }
-        
-        document.getElementById('postFormOverlay').classList.add('active');
-    });
+    currentBoardId = boardIdString;
+    // enterWhiteboard already handles switchView and startBoardSync
+    enterWhiteboard(boardIdString);
 }
 
 // --- Firestore Community Logic ---
@@ -145,6 +115,7 @@ async function savePost() {
         document.getElementById('postContent').value = '';
         
         loadPosts();
+        switchView('communityView');
     } catch (e) {
         console.error("Error adding document: ", e);
     }
@@ -195,8 +166,7 @@ async function loadPosts() {
 // --- Event Listeners ---
 document.getElementById('openCommunityBtn')?.addEventListener('click', () => switchView('communityView'));
 document.getElementById('backToLobbyBtn')?.addEventListener('click', () => switchView('lobbyView'));
-document.getElementById('toggleWrite')?.addEventListener('click', openBoardSelector);
-document.getElementById('closeSelectorBtn')?.addEventListener('click', () => document.getElementById('boardSelectorModal').classList.remove('active'));
+document.getElementById('toggleWrite')?.addEventListener('click', enterSelectionMode);
 document.getElementById('cancelPostBtn')?.addEventListener('click', () => document.getElementById('postFormOverlay').classList.remove('active'));
 document.getElementById('savePost')?.addEventListener('click', savePost);
 
@@ -206,6 +176,7 @@ const boardsPerPage = 6;
 let maxPage = 0;
 
 function renderBoardGrid(boardsObj) {
+    if(!agWrapper) return;
     agWrapper.innerHTML = '';
     const boards = Object.keys(boardsObj || {}).map(k => ({id: k, ...boardsObj[k]}));
     maxPage = Math.max(0, Math.ceil(boards.length / boardsPerPage) - 1);
@@ -223,17 +194,17 @@ function renderBoardGrid(boardsObj) {
             el.innerHTML = `
                 <div class="img-box">
                     <canvas class="thumb-canvas" id="thumb-${board.id}"></canvas>
+                    <div class="join-overlay">JOIN</div>
                 </div>
                 <div class="board-badge">
-                    <span class="badge-id">${board.id}</span>
+                    <span class="badge-id">BOARD ${board.id.replace('board','')}</span>
                     <span class="badge-status">Live</span>
                 </div>
             `;
-            
+            el.onclick = () => enterBoard(board.id);
             pageEl.appendChild(el);
 
-            // 썸네일 동기화 및 실시간 스트림 연결
-            setTimeout(() => { // 캔버스가 DOM에 붙은 후 실행 보장
+            setTimeout(() => {
                 const tCanvas = document.getElementById(`thumb-${board.id}`);
                 if(tCanvas) {
                     tCanvas.width = 600; tCanvas.height = 400;
@@ -242,16 +213,7 @@ function renderBoardGrid(boardsObj) {
                         const img = new Image();
                         img.onload = () => tCtx.drawImage(img, 0, 0, 600, 400);
                         img.src = board.thumbnail;
-                    } else {
-                        tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0, 600, 400);
-                        tCtx.strokeStyle = '#f1f5f9';
-                        tCtx.lineWidth = 10; tCtx.lineCap = 'round'; tCtx.beginPath();
-                        tCtx.moveTo(100+Math.random()*100, 100+Math.random()*100);
-                        tCtx.bezierCurveTo(300, 100, 100, 300, 400, 200);
-                        tCtx.stroke();
                     }
-
-                    // 실시간 스트림 연결
                     onChildAdded(ref(db, `streams/${board.id}`), (snapshot) => {
                         const data = snapshot.val();
                         if (data.action === 'clear') { tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0,600,400); return; }
