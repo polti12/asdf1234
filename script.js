@@ -153,17 +153,19 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        // 반드시 평가 가이드에 명시된 보안 규칙에 맞게 'robot_board'와 'created_at' 필드명을 사용합니다.
-        // 규칙 충돌(권한 오류)을 우회하기 위함입니다.
-        await addDoc(collection(firestore, 'robot_board'), {
+        // 8초 후 타임아웃 처리 (네트워크 불안정 대비)
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
+        
+        const savePromise = addDoc(collection(firestore, 'robot_board'), {
             title: title || "무제",
             author: author || "익명",
             category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
-            created_at: Date.now() // serverTimestamp 의존성 제거, 그러나 필드명은 created_at 유지
+            created_at: serverTimestamp() // 반드시 가이드대로 서버 타임스탬프 사용
         });
 
+        await Promise.race([savePromise, timeout]);
         
         alert("기록이 성공적으로 저장되었습니다!");
         document.getElementById('postFormOverlay').classList.remove('active');
@@ -171,15 +173,22 @@ async function savePost() {
         document.getElementById('postAuthor').value = '';
         document.getElementById('postContent').value = '';
         
-        loadPosts();
+        setTimeout(loadPosts, 500); // DB 반영 시간을 고려한 약간의 딜레이 후 로드
     } catch (e) {
-        console.error("Error adding document: ", e);
-        alert("저장 중 오류가 발생했습니다: " + (e.message === "Timeout" ? "서버 응답 지연 (데이터베이스 확인 필요)" : e.message));
+        console.error("Save Error:", e);
+        if (e.message === "Timeout") {
+            alert("서버 응답이 너무 늦습니다. 인터넷 연결이나 파이어베이스 설정을 확인해 주세요.");
+        } else if (e.code === 'permission-denied') {
+            alert("저장 권한이 없습니다. Firebase 콘솔의 Firestore 규칙이 'robot_board' 컬렉션에 대해 허용되어 있는지 확인해 주세요.");
+        } else {
+            alert("저장 중 오류 발생: " + e.message);
+        }
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
     }
 }
+
 
 
 async function loadPosts() {
@@ -203,7 +212,16 @@ async function loadPosts() {
         querySnapshot.forEach((docSnap) => {
             const post = docSnap.data();
             const postId = docSnap.id;
-            const date = post.created_at ? new Date(post.created_at).toLocaleDateString('ko-KR') : '—';
+            
+            // Timestamp 객체인지 일반 숫자인지 판별하여 날짜 변환
+            let date = '—';
+            if (post.created_at) {
+                if (typeof post.created_at.toDate === 'function') {
+                    date = post.created_at.toDate().toLocaleDateString('ko-KR');
+                } else if (typeof post.created_at === 'number') {
+                    date = new Date(post.created_at).toLocaleDateString('ko-KR');
+                }
+            }
             
             const card = document.createElement('div');
             card.className = 'post-card';
@@ -394,7 +412,11 @@ document.getElementById('nextBtn').addEventListener('click', () => {
     if (currentPage < maxPage) { currentPage++; updateSlider(); }
 });
 
-// 3D Camera Logic Removed
+// 타이머 초기 깜빡임 방지용 로컬 캐시 적용
+const cachedTimerBase = localStorage.getItem('lastTimerBase');
+if (cachedTimerBase) {
+    startTimer(parseInt(cachedTimerBase));
+}
 
 // RTDB 로비 감지 (하드코딩 42개 유지 및 2시간 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
@@ -431,8 +453,9 @@ onValue(ref(db, 'whiteboards'), (snapshot) => {
     }
     renderBoardGrid(finalData); // 방 목록 및 썸네일 새로고침
     
-    // 타이머 UI 동기화 (Gallery-1 기준)
+    // 타이머 UI 동기화 (Gallery-1 기준) 및 즉각적 캐싱
     if (finalData['Gallery-1'] && finalData['Gallery-1'].createdAt) {
+        localStorage.setItem('lastTimerBase', finalData['Gallery-1'].createdAt);
         startTimer(finalData['Gallery-1'].createdAt);
     }
 });
