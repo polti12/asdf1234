@@ -36,32 +36,29 @@ let boardUnsubscribe = null;
 let streamUnsubscribe = null;
 let permissionUnsubscribe = null;
 
-// --- 3D Gallery (Lobby) Dynamic Generation (RTDB) ---
-const cols = 8, rows = 5, arcWidth = 3500, arcDepth = 1500, verticalGap = 500;
-
-function generate3DGrid(boardsObj) {
+// --- Board Grid (Lobby) Rendering ---
+function renderBoardGrid(boardsObj) {
     agWrapper.innerHTML = '';
     const boards = Object.keys(boardsObj || {}).map(k => ({id: k, ...boardsObj[k]}));
     
-    boards.forEach((board, index) => {
-        const col = index % cols, row = Math.floor(index / cols);
-        const nX = (col - (cols - 1) / 2) / ((cols - 1) / 2 || 1);
-        const nY = (row - (rows - 1) / 2) / ((rows - 1) / 2 || 1);
-
-        const xPos = nX * (arcWidth / 2), zPos = (Math.abs(nX) - 1) * arcDepth, yPos = nY * (verticalGap * (rows / 2)); 
-        const angleY = nX * -45, angleX = nY * 15; 
-
+    boards.forEach((board) => {
         const el = document.createElement('div');
         el.className = 'gallery-item';
         el.dataset.id = board.id;
 
-        el.innerHTML = `<div class="img-box"><canvas class="thumb-canvas" id="thumb-${board.id}"></canvas><div class="item-overlay">${board.id}</div></div>`;
-        el.style.setProperty('--bx', `${xPos}px`); el.style.setProperty('--by', `${yPos}px`); el.style.setProperty('--bz', `${zPos}px`); el.style.setProperty('--ax', `${angleX}deg`); el.style.setProperty('--ay', `${angleY}deg`);
-        el.style.transform = `translate3d(${xPos}px, ${yPos}px, ${zPos}px) rotateX(${angleX}deg) rotateY(${angleY}deg)`;
+        el.innerHTML = `
+            <div class="img-box">
+                <canvas class="thumb-canvas" id="thumb-${board.id}"></canvas>
+            </div>
+            <div class="board-badge">
+                <span class="badge-id">${board.id}</span>
+                <span class="badge-status">Live</span>
+            </div>
+        `;
         
         agWrapper.appendChild(el);
 
-        // 썸네일 동기화 및 더미 패턴, 실시간 스트림 연결
+        // 썸네일 동기화 및 실시간 스트림 연결
         const tCanvas = document.getElementById(`thumb-${board.id}`);
         if(tCanvas) {
             tCanvas.width = 600; tCanvas.height = 400;
@@ -72,26 +69,21 @@ function generate3DGrid(boardsObj) {
                 img.src = board.thumbnail;
             } else {
                 tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0, 600, 400);
-
-                // 빈 보드를 덜 어색하게 만들기 위한 "대충 낙서" 효과
-                tCtx.strokeStyle = '#e2e8f0'; // 눈 아프지 않은 연한 회색
-                tCtx.lineWidth = 10; 
+                // 빈 보드 낙서 효과
+                tCtx.strokeStyle = '#f3f4f6';
+                tCtx.lineWidth = 8; 
                 tCtx.lineCap = 'round'; tCtx.lineJoin = 'round';
                 tCtx.beginPath();
-                const sx = 150 + Math.random() * 100;
-                const sy = 150 + Math.random() * 100;
+                const sx = 100 + Math.random() * 100;
+                const sy = 100 + Math.random() * 100;
                 tCtx.moveTo(sx, sy);
                 for(let i=0; i<3; i++) {
-                    tCtx.bezierCurveTo(
-                        sx + Math.random() * 300 - 150, sy + Math.random() * 300 - 150,
-                        sx + Math.random() * 300 - 150, sy + Math.random() * 300 - 150,
-                        sx + Math.random() * 200 - 100, sy + Math.random() * 200 - 100
-                    );
+                    tCtx.bezierCurveTo(sx + 100, sy + 50, sx - 50, sy + 150, sx + 200, sy + 100);
                 }
                 tCtx.stroke();
             }
 
-            // 로비에서 이 칠판이 그려지는걸 실시간으로 보여주는 라이브 썸네일
+            // 실시간 스트림 연결
             onChildAdded(ref(db, `streams/${board.id}`), (snapshot) => {
                 const data = snapshot.val();
                 if (data.action === 'clear') { tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0,600,400); return; }
@@ -115,22 +107,8 @@ function generate3DGrid(boardsObj) {
     });
 }
 
-// 3D Camera Rotation Logic
-let mX = 0, mY = 0, tX = 0, tY = 0, rX = 0, rY = 0, cRX = 0, cRY = 0;
-window.addEventListener('mousemove', (e) => {
-    if(!lobbyView.classList.contains('active')) return;
-    const x = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
-    const y = (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
-    mX = x * -900; mY = y * -600; rY = x * 15; rX = y * -8;
-});
-function animate3D() {
-    if(lobbyView.classList.contains('active') && agWrapper) {
-        tX += (mX - tX) * 0.05; tY += (mY - tY) * 0.05; cRX += (rX - cRX) * 0.05; cRY += (rY - cRY) * 0.05;
-        agWrapper.style.transform = `translate3d(calc(-50% + ${tX}px), calc(-50% + ${tY}px), -1000px) rotateX(${cRX}deg) rotateY(${cRY}deg)`;
-    }
-    requestAnimationFrame(animate3D);
-}
-animate3D();
+// 3D Camera Rotation Logic (Removed for cleaner grid experience)
+// animate3D() removed
 
 // RTDB 로비 감지 (하드코딩 40개 유지 및 2시간 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
@@ -163,7 +141,7 @@ onValue(ref(db, 'whiteboards'), (snapshot) => {
     for(let i=1; i<=40; i++) {
         finalData[`Gallery-${i}`] = data[`Gallery-${i}`];
     }
-    generate3DGrid(finalData); // 방 목록 및 썸네일 새로고침
+    renderBoardGrid(finalData); // 방 목록 및 썸네일 새로고침
 });
 
 
