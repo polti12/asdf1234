@@ -1,4 +1,4 @@
-// Canvas Explorer - Ultra Stability Patch
+// Canvas Explorer - Final Professional Version (Full Workflow Complete)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -13,79 +13,64 @@ const firebaseConfig = {
     appId: "1:53282534532:web:607ee422ca20eb5d053ed1"
 };
 
-// Global variables
-let app, db, firestore;
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const firestore = getFirestore(app);
+
+// Global State
+const myUserId = sessionStorage.getItem('myUserId') || ('Guest_' + Math.floor(Math.random() * 10000));
+sessionStorage.setItem('myUserId', myUserId);
+const mySessionId = myUserId + '_' + Date.now();
 let currentBoardId = null;
+let selectedSnapshotBoardId = null;
 let streamUnsubscribe = null;
 let isDrawing = false;
-let myUserId, mySessionId;
+let currentTool = 'pen';
+let currentColor = '#000000';
+let currentLineWidth = 5;
 
-// Initialize when everything is ready
-function initApp() {
-    try {
-        app = initializeApp(firebaseConfig);
-        db = getDatabase(app);
-        firestore = getFirestore(app);
-        
-        myUserId = sessionStorage.getItem('myUserId') || ('Guest_' + Math.floor(Math.random() * 10000));
-        sessionStorage.setItem('myUserId', myUserId);
-        mySessionId = myUserId + '_' + Date.now();
-        
-        setupStats();
-        setupTimer();
-        setupLobby();
-        setupDrawing();
-        setupArchives();
-    } catch (e) {
-        console.error("Initialization failed", e);
-    }
+// [1] Initialization & Stats
+function init() {
+    setupStats();
+    setupTimer();
+    setupLobby();
+    setupCanvas();
+    setupArchives();
 }
 
-// [1] Stats
 function setupStats() {
     onValue(ref(db, 'globalStats'), snap => {
-        const data = snap.val() || { totalBoards: 42, totalLines: 0, visitors: 0 };
-        const b = document.getElementById('statBoards'), l = document.getElementById('statLines'), v = document.getElementById('statVisitors');
-        if(b) b.innerText = (data.totalBoards || 42).toLocaleString();
-        if(l) l.innerHTML = (data.totalLines || 0).toLocaleString() + "<span>M</span>";
-        if(v) v.innerText = (data.visitors || 0).toLocaleString();
+        const d = snap.val() || { totalBoards: 42, totalLines: 0, visitors: 0 };
+        document.getElementById('statBoards').innerText = (d.totalBoards || 42).toLocaleString();
+        document.getElementById('statLines').innerHTML = (d.totalLines || 0).toLocaleString() + "<span>M</span>";
+        document.getElementById('statVisitors').innerText = (d.visitors || 0).toLocaleString();
     });
+    // Record visit
+    if(!sessionStorage.getItem('visited')) {
+        update(ref(db, 'globalStats'), { visitors: increment(1) });
+        sessionStorage.setItem('visited', 't');
+    }
 }
 
 // [2] Timer
 let resetInterval = null;
 function setupTimer() {
-    const timerEl = document.getElementById('resetTimer');
-    if(timerEl) timerEl.innerText = "LOADING...";
-
     onValue(ref(db, 'timerBase'), snap => {
-        const base = snap.val();
-        const now = Date.now();
-        if (!base || (now - Number(base) > 7200000)) {
-            const newBase = now;
-            set(ref(db, 'timerBase'), newBase);
-            runCountdown(newBase);
-        } else {
-            runCountdown(Number(base));
-        }
+        const base = Number(snap.val() || Date.now());
+        if (resetInterval) clearInterval(resetInterval);
+        const timerEl = document.getElementById('resetTimer');
+        resetInterval = setInterval(() => {
+            const diff = (base + 7200000) - Date.now();
+            if (diff <= 0) { timerEl.innerText = "0:00:00"; return; }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            timerEl.innerText = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }, 1000);
     });
 }
 
-function runCountdown(base) {
-    if(resetInterval) clearInterval(resetInterval);
-    const timerEl = document.getElementById('resetTimer');
-    resetInterval = setInterval(() => {
-        if(!timerEl) return;
-        const diff = (base + 7200000) - Date.now();
-        if(diff <= 0) { timerEl.innerText = "RESETTING..."; return; }
-        const h = Math.floor(diff / 3600000);
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        timerEl.innerText = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }, 1000);
-}
-
-// [3] Lobby
+// [3] Lobby Grid
 const boardsPerPage = 6;
 let currentPage = 0, maxPage = 0;
 
@@ -97,41 +82,44 @@ function setupLobby() {
             const k = `Gallery-${i}`;
             final[k] = data[k] || { thumbnail: "" };
         }
-        renderGrid(final);
+        renderLobby(final);
     });
 }
 
-function renderGrid(boardsObj) {
+function renderLobby(boards) {
     const agWrapper = document.getElementById('agWrapper');
     if(!agWrapper) return;
     agWrapper.innerHTML = '';
-    const boards = Object.keys(boardsObj).map(k => ({id:k, ...boardsObj[k]}));
-    maxPage = Math.ceil(boards.length / boardsPerPage) - 1;
+    const boardList = Object.keys(boards).map(k => ({id:k, ...boards[k]}));
+    maxPage = Math.ceil(boardList.length / boardsPerPage) - 1;
 
     for (let p = 0; p <= maxPage; p++) {
         const page = document.createElement('div');
         page.className = 'gallery-page';
-        boards.slice(p * boardsPerPage, (p + 1) * boardsPerPage).forEach(b => {
+        boardList.slice(p * boardsPerPage, (p + 1) * boardsPerPage).forEach(b => {
             const item = document.createElement('div');
             item.className = 'gallery-item';
-            item.innerHTML = `<div class="img-box"><canvas id="thumb-${b.id}"></canvas></div><div class="board-badge"><span class="badge-id">${b.id}</span></div>`;
+            item.innerHTML = `
+                <div class="img-box"><canvas id="thumb-${b.id}"></canvas></div>
+                <div class="board-badge"><span class="badge-id">${b.id}</span></div>
+            `;
             item.onclick = () => enterBoard(b.id);
             page.appendChild(item);
             
             setTimeout(() => {
-                const tv = document.getElementById(`thumb-${b.id}`);
-                if(tv) {
-                    const tc = tv.getContext('2d');
-                    tv.width = 300; tv.height = 200;
+                const canvas = document.getElementById(`thumb-${b.id}`);
+                if(canvas) {
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 300; canvas.height = 200;
                     if(b.thumbnail) {
                         const img = new Image();
-                        img.onload = () => tc.drawImage(img, 0,0, 300, 200);
+                        img.onload = () => ctx.drawImage(img, 0,0, 300, 200);
                         img.src = b.thumbnail;
                     } else {
-                        tc.fillStyle = '#f8fafc'; tc.fillRect(0,0, 300, 200);
+                        ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,300,200);
                     }
                 }
-            }, 60);
+            }, 50);
         });
         agWrapper.appendChild(page);
     }
@@ -139,141 +127,177 @@ function renderGrid(boardsObj) {
 }
 
 function updateSlider() {
-    const w = document.getElementById('agWrapper');
-    if(w) w.style.transform = `translateX(-${currentPage * 100}%)`;
-    const p = document.getElementById('prevBtn'), n = document.getElementById('nextBtn');
-    if(p) p.disabled = (currentPage === 0);
-    if(n) n.disabled = (currentPage === maxPage);
+    document.getElementById('agWrapper').style.transform = `translateX(-${currentPage * 100}%)`;
+    document.getElementById('prevBtn').disabled = (currentPage === 0);
+    document.getElementById('nextBtn').disabled = (currentPage === maxPage);
 }
 document.getElementById('prevBtn').onclick = () => { if(currentPage > 0) {currentPage--; updateSlider();} };
 document.getElementById('nextBtn').onclick = () => { if(currentPage < maxPage) {currentPage++; updateSlider();} };
 
-// [4] Drawing
-let ctx, canvas;
-function setupDrawing() {
-    canvas = document.getElementById('drawingCanvas');
-    if(!canvas) return;
-    ctx = canvas.getContext('2d', { willReadFrequently: true });
-    
-    canvas.onmousedown = canvas.ontouchstart = (e) => { startDraw(e); };
-    canvas.onmousemove = canvas.ontouchmove = (e) => { doDraw(e); };
-    canvas.onmouseup = canvas.ontouchend = canvas.onmouseleave = () => { stopDraw(); };
+// [4] Drawing & Canvas
+const whiteboardView = document.getElementById('whiteboardView');
+const drawingCanvas = document.getElementById('drawingCanvas');
+const drawingCtx = drawingCanvas?.getContext('2d', { willReadFrequently: true });
+
+function setupCanvas() {
+    if(!drawingCanvas) return;
+    drawingCanvas.onmousedown = drawingCanvas.ontouchstart = (e) => startDrawing(e);
+    drawingCanvas.onmousemove = drawingCanvas.ontouchmove = (e) => doDrawing(e);
+    drawingCanvas.onmouseup = drawingCanvas.ontouchend = drawingCanvas.onmouseleave = () => stopDrawing();
 }
 
-let buffer = [];
 function enterBoard(id) {
     currentBoardId = id;
-    const nameEl = document.getElementById('currentBoardName');
-    if(nameEl) nameEl.innerText = id;
-    const view = document.getElementById('whiteboardView');
-    if(view) {
-        view.classList.add('active');
-        const r = canvas.parentElement.getBoundingClientRect();
-        canvas.width = r.width; canvas.height = r.height;
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0, canvas.width, canvas.height);
-    }
-    if(streamUnsubscribe) streamUnsubscribe();
+    document.getElementById('currentBoardName').innerText = id;
+    whiteboardView.classList.add('active');
+    
+    const r = drawingCanvas.parentElement.getBoundingClientRect();
+    drawingCanvas.width = r.width; drawingCanvas.height = r.height;
+    drawingCtx.fillStyle = '#ffffff'; drawingCtx.fillRect(0,0, drawingCanvas.width, drawingCanvas.height);
+
+    if (streamUnsubscribe) streamUnsubscribe();
     streamUnsubscribe = onChildAdded(ref(db, `streams/${id}`), snap => {
         const d = snap.val();
         if(d.session === mySessionId) return;
-        if(d.action === 'clear') { ctx.fillRect(0,0, canvas.width, canvas.height); return; }
-        renderStroke(d);
+        if(d.action === 'clear') { drawingCtx.fillRect(0,0, drawingCanvas.width, drawingCanvas.height); return; }
+        renderRemoteStroke(d);
     });
 }
 
-function renderStroke(d) {
+function renderRemoteStroke(d) {
     if(!d.pts) return;
-    ctx.beginPath();
-    ctx.lineWidth = d.w; ctx.strokeStyle = (d.t === 'eraser' ? '#ffffff' : d.c);
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.moveTo(d.pts[0].x, d.pts[0].y);
-    d.pts.forEach(p => ctx.lineTo(p.x, p.y));
-    ctx.stroke();
+    drawingCtx.beginPath();
+    drawingCtx.lineWidth = d.w; 
+    drawingCtx.strokeStyle = d.t === 'eraser' ? '#ffffff' : d.c;
+    drawingCtx.lineCap = drawingCtx.lineJoin = 'round';
+    drawingCtx.moveTo(d.pts[0].x, d.pts[0].y);
+    d.pts.forEach(p => drawingCtx.lineTo(p.x, p.y));
+    drawingCtx.stroke();
 }
 
-function startDraw(e) { 
-    isDrawing = true; 
-    const r = canvas.getBoundingClientRect();
+let drawingBuffer = [];
+function startDrawing(e) {
+    isDrawing = true;
+    const r = drawingCanvas.getBoundingClientRect();
     const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
     const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-    buffer = [{x, y}];
+    drawingBuffer = [{x, y}];
     if(e.type === 'touchstart') e.preventDefault();
 }
 
-function doDraw(e) {
+function doDrawing(e) {
     if(!isDrawing) return;
-    const r = canvas.getBoundingClientRect();
+    const r = drawingCanvas.getBoundingClientRect();
     const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
     const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-    const last = buffer[buffer.length-1];
-    ctx.beginPath();
-    ctx.lineWidth = 5; ctx.strokeStyle = '#000000';
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.moveTo(last.x, last.y);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    buffer.push({x, y});
-    if(e.type === 'touchmove') e.preventDefault();
+    const last = drawingBuffer[drawingBuffer.length-1];
+    
+    drawingCtx.beginPath();
+    drawingCtx.lineWidth = currentLineWidth;
+    drawingCtx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+    drawingCtx.lineCap = drawingCtx.lineJoin = 'round';
+    drawingCtx.moveTo(last.x, last.y);
+    drawingCtx.lineTo(x, y);
+    drawingCtx.stroke();
+    drawingBuffer.push({x, y});
 }
 
-function stopDraw() {
+function stopDrawing() {
     if(!isDrawing) return;
     isDrawing = false;
-    if(buffer.length > 1) {
+    if(drawingBuffer.length > 1) {
         push(ref(db, `streams/${currentBoardId}`), {
-            session: mySessionId, pts: buffer, c: '#000000', w: 5, t: 'pen'
+            session: mySessionId, pts: drawingBuffer, c: currentColor, w: currentLineWidth, t: currentTool
         });
+        update(ref(db, 'globalStats'), { totalLines: increment(drawingBuffer.length) });
     }
-    buffer = [];
+    drawingBuffer = [];
 }
 
-document.getElementById('closeBoardBtn').onclick = () => {
-    const thumb = canvas.toDataURL('image/jpeg', 0.4); // Compressing more for speed
+document.getElementById('closeBoardBtn').onclick = async () => {
+    const thumb = drawingCanvas.toDataURL('image/jpeg', 0.5);
     update(ref(db, `whiteboards/${currentBoardId}`), { thumbnail: thumb });
-    document.getElementById('whiteboardView').classList.remove('active');
+    whiteboardView.classList.remove('active');
 };
 
-// [5] Archives
+// Toolbar
+document.getElementById('toolPen').onclick = () => { currentTool = 'pen'; currentColor = '#000000'; };
+document.getElementById('toolEraser').onclick = () => { currentTool = 'eraser'; };
+document.getElementById('toolClear').onclick = () => { 
+    if(confirm('Clear all?')){ 
+        drawingCtx.fillRect(0,0,drawingCanvas.width,drawingCanvas.height); 
+        push(ref(db, `streams/${currentBoardId}`), {action:'clear'});
+    }
+};
+document.getElementById('lineWidth').oninput = (e) => { currentLineWidth = Number(e.target.value); };
+
+// [5] Archives & Post Management
+async function openBoardSelector() {
+    const grid = document.getElementById('selectorGrid');
+    const overlay = document.getElementById('boardSelectorOverlay');
+    grid.innerHTML = '<div class="no-posts">LOADING...</div>';
+    overlay.classList.add('active');
+
+    const snap = await get(ref(db, 'whiteboards'));
+    const data = snap.val() || {};
+    grid.innerHTML = '';
+
+    for(let i=1; i<=42; i++) {
+        const id = `Gallery-${i}`;
+        const item = document.createElement('div');
+        item.className = 'selector-item';
+        item.innerHTML = `<div class="selector-thumb">${data[id]?.thumbnail ? `<img src="${data[id].thumbnail}">` : 'NO SNAP'}</div>
+                          <div class="selector-label">${id}</div>`;
+        item.onclick = () => selectForPost(id, data[id]?.thumbnail);
+        grid.appendChild(item);
+    }
+}
+
+function selectForPost(id, thumb) {
+    selectedSnapshotBoardId = id;
+    document.getElementById('boardSelectorOverlay').classList.remove('active');
+    document.getElementById('selectedBoardTitle').innerText = id;
+    const preview = document.getElementById('snapshotPreview');
+    preview.innerHTML = thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;">` : 'NO SNAPSHOT';
+    document.getElementById('postFormOverlay').classList.add('active');
+}
+
 function setupArchives() {
+    document.getElementById('toggleWrite').onclick = openBoardSelector;
+    document.getElementById('closeSelectorBtn').onclick = () => document.getElementById('boardSelectorOverlay').classList.remove('active');
+    document.getElementById('cancelPostBtn').onclick = () => document.getElementById('postFormOverlay').classList.remove('active');
+    
     onValue(ref(db, 'posts'), snap => {
         const container = document.getElementById('postCardContainer');
-        if(!container) return;
-        const data = snap.val() || {};
-        const items = Object.keys(data).map(k => ({id:k, ...data[k]})).reverse();
-        const ce = document.getElementById('count');
-        if(ce) ce.innerText = items.length;
-        container.innerHTML = items.map(p => `
+        const list = Object.keys(snap.val() || {}).map(k => ({id:k, ...snap.val()[k]})).reverse();
+        document.getElementById('count').innerText = list.length;
+        container.innerHTML = list.map(p => `
             <div class="post-card">
-                <div class="post-header-simple"><span class="post-tag-badge">${p.boardId}</span></div>
+                <div class="post-tag-badge">${p.boardId}</div>
                 <div class="post-title-text">${p.title}</div>
                 <p class="post-desc">${p.content}</p>
-                <div class="post-footer-simple">BY ${p.author}</div>
+                <div class="post-footer-simple">BY ${p.author} • ${new Date(p.created_at).toLocaleDateString()}</div>
             </div>
         `).join('');
     });
 
-    const sw = document.getElementById('savePost');
-    if(sw) sw.onclick = async () => {
-        const t = document.getElementById('postTitle').value;
-        const c = document.getElementById('postContent').value;
-        if(t && c) {
+    document.getElementById('savePost').onclick = async () => {
+        const title = document.getElementById('postTitle').value;
+        const content = document.getElementById('postContent').value;
+        if(title && content) {
             await push(ref(db, 'posts'), {
-                title: t, content: c, author: document.getElementById('postAuthor').value || "익명",
-                created_at: Date.now(), boardId: currentBoardId || "Unknown"
+                title, content, author: document.getElementById('postAuthor').value || "익명",
+                created_at: Date.now(), boardId: selectedSnapshotBoardId || "Unknown"
             });
             document.getElementById('postFormOverlay').classList.remove('active');
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+        } else {
+            alert('제목과 내용을 입력해주세요.');
         }
-    };
-    
-    const tw = document.getElementById('toggleWrite');
-    if(tw) tw.onclick = () => {
-        alert("먼저 보드에 접속한 뒤 닫기 버튼을 눌러 스냅샷을 생성하세요. 그 후 '기록 남기기' 기능이 활성화됩니다.");
     };
 }
 
-// Start
-if(document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
-}
+// Start App
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
