@@ -194,7 +194,6 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        // Realtime Database에서 게시물 실시간 로드
         onValue(ref(db, 'posts'), (snapshot) => {
             const data = snapshot.val();
             container.innerHTML = '';
@@ -206,7 +205,6 @@ async function loadPosts() {
                 return;
             }
 
-            // 객체를 배열로 변환하고 최신순 정렬 (ID 보존)
             const postsArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
             postsArray.sort((a, b) => b.created_at - a.created_at);
             
@@ -216,93 +214,64 @@ async function loadPosts() {
             postsArray.forEach((post) => {
                 const postId = post.id;
                 const date = post.created_at ? new Date(post.created_at).toLocaleDateString('ko-KR') : '—';
-            
-            const card = document.createElement('div');
-            card.className = 'post-card';
-            
-            // Dynamic image rendering using an ID so we can fetch it asynchronously
-            const imgId = "img-" + Math.random().toString(36).substr(2, 9);
-            
-            card.innerHTML = `
-                <div class="post-img" id="${imgId}">
-                    <div class="no-img">LOADING...</div>
-                </div>
-                <div class="post-info">
-                    <div class="post-header">
-                        <span class="post-tag">${post.boardId || '?'}</span>
-                        <span class="post-date">${date}</span>
-                    </div>
-                    <div class="post-title-text">${post.title}</div>
-                    <div class="post-desc">${post.content}</div>
-                    <div class="post-footer">
-                        BY ${post.author}
-                        <div class="post-actions">
-                            <button class="post-action-btn edit-btn" data-id="${postId}" data-title="${post.title}" data-content="${post.content}">수정</button>
-                            <button class="post-action-btn del-btn" data-id="${postId}">삭제</button>
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                const imgId = "img-" + Math.random().toString(36).substr(2, 9);
+                
+                card.innerHTML = `
+                    <div class="post-img" id="${imgId}"><div class="no-img">LOADING...</div></div>
+                    <div class="post-info">
+                        <div class="post-header">
+                            <span class="post-tag">${post.boardId || '?'}</span>
+                            <span class="post-date">${date}</span>
+                        </div>
+                        <div class="post-title-text">${post.title}</div>
+                        <div class="post-desc">${post.content}</div>
+                        <div class="post-footer">
+                            BY ${post.author}
+                            <div class="post-actions">
+                                <button class="post-action-btn edit-btn" data-id="${postId}" data-title="${post.title}" data-content="${post.content}">수정</button>
+                                <button class="post-action-btn del-btn" data-id="${postId}">삭제</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            container.appendChild(card);
-            
-            // Asynchronously fetch the image from Realtime Database
-            if (post.boardId && post.boardId !== "Unknown") {
-                get(ref(db, `whiteboards/${post.boardId}/thumbnail`)).then(snap => {
-                    const dataUrl = snap.val();
-                    const imgContainer = document.getElementById(imgId);
-                    if (imgContainer) {
-                        if (dataUrl) {
-                            imgContainer.innerHTML = `<img src="${dataUrl}" alt="Snapshot" loading="lazy">`;
-                        } else {
-                            imgContainer.innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
+                `;
+                container.appendChild(card);
+                
+                if (post.boardId && post.boardId !== "Unknown") {
+                    get(ref(db, `whiteboards/${post.boardId}/thumbnail`)).then(snap => {
+                        const imgContainer = document.getElementById(imgId);
+                        if (imgContainer) {
+                            if (snap.val()) imgContainer.innerHTML = `<img src="${snap.val()}" alt="Snapshot" loading="lazy">`;
+                            else imgContainer.innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
                         }
-                    }
-                }).catch(() => {
+                    });
+                } else {
                     const imgContainer = document.getElementById(imgId);
-                    if (imgContainer) imgContainer.innerHTML = '<div class="no-img">ERROR</div>';
-                });
-            } else {
-                document.getElementById(imgId).innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
-            }
-        });
-
-        // 수정 & 삭제 리스너 (RTDB 버전)
-        // onValue 내부에 두면 갱신될 때마다 중복될 수 있어 이벤트 위임을 사용하는 것이 좋으나 
-        // 여기서는 버튼 생성 시점에 이벤트를 바로 걸어줍니다.
-        const delBtns = container.querySelectorAll('.del-btn');
-        delBtns.forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const id = e.target.dataset.id;
-                if(confirm("이 기록을 삭제하시겠습니까?")) {
-                    await remove(ref(db, `posts/${id}`));
+                    if (imgContainer) imgContainer.innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
                 }
             });
-        });
-        const editBtns = container.querySelectorAll('.edit-btn');
-        editBtns.forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const id = e.target.dataset.id;
-                const oldTitle = e.target.dataset.title;
-                const oldContent = e.target.dataset.content;
-                
-                const newTitle = prompt("수정할 제목:", oldTitle);
-                if(newTitle === null) return;
-                
-                const newContent = prompt("수정할 내용:", oldContent);
-                if(newContent === null) return;
-                
-                await update(ref(db, `posts/${id}`), {
-                    title: newTitle,
-                    content: newContent
-                });
+
+            container.querySelectorAll('.del-btn').forEach(btn => {
+                btn.onclick = async (e) => {
+                    if(confirm("삭제하시겠습니까?")) await remove(ref(db, `posts/${e.target.dataset.id}`));
+                };
             });
-        });
-        }); // onValue 끝
+            container.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.onclick = async (e) => {
+                    const id = e.target.dataset.id;
+                    const nT = prompt("제목:", e.target.dataset.title);
+                    const nC = prompt("내용:", e.target.dataset.content);
+                    if (nT && nC) await update(ref(db, `posts/${id}`), { title: nT, content: nC });
+                };
+            });
+        }); 
     } catch (e) {
-        console.error('Error loading posts:', e);
+        console.error('Error:', e);
         container.innerHTML = '<div class="no-posts">Error loading archives.</div>';
     }
 }
+
 
 
 // --- Event Listeners ---
