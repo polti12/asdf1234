@@ -36,79 +36,98 @@ let boardUnsubscribe = null;
 let streamUnsubscribe = null;
 let permissionUnsubscribe = null;
 
-// --- Board Grid (Lobby) Rendering ---
+// --- Board Grid (Lobby) Rendering & Pagination ---
+let currentPage = 0;
+const boardsPerPage = 8;
+let maxPage = 0;
+
 function renderBoardGrid(boardsObj) {
     agWrapper.innerHTML = '';
     const boards = Object.keys(boardsObj || {}).map(k => ({id: k, ...boardsObj[k]}));
+    maxPage = Math.max(0, Math.ceil(boards.length / boardsPerPage) - 1);
     
-    boards.forEach((board) => {
-        const el = document.createElement('div');
-        el.className = 'gallery-item';
-        el.dataset.id = board.id;
-
-        el.innerHTML = `
-            <div class="img-box">
-                <canvas class="thumb-canvas" id="thumb-${board.id}"></canvas>
-            </div>
-            <div class="board-badge">
-                <span class="badge-id">${board.id}</span>
-                <span class="badge-status">Live</span>
-            </div>
-        `;
+    for (let p = 0; p <= maxPage; p++) {
+        const pageEl = document.createElement('div');
+        pageEl.className = 'gallery-page';
         
-        agWrapper.appendChild(el);
+        const pageBoards = boards.slice(p * boardsPerPage, (p + 1) * boardsPerPage);
+        pageBoards.forEach((board) => {
+            const el = document.createElement('div');
+            el.className = 'gallery-item';
+            el.dataset.id = board.id;
 
-        // 썸네일 동기화 및 실시간 스트림 연결
-        const tCanvas = document.getElementById(`thumb-${board.id}`);
-        if(tCanvas) {
-            tCanvas.width = 600; tCanvas.height = 400;
-            const tCtx = tCanvas.getContext('2d');
-            if (board.thumbnail) {
-                const img = new Image();
-                img.onload = () => tCtx.drawImage(img, 0, 0, 600, 400);
-                img.src = board.thumbnail;
-            } else {
-                tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0, 600, 400);
-                // 빈 보드 낙서 효과
-                tCtx.strokeStyle = '#f3f4f6';
-                tCtx.lineWidth = 8; 
-                tCtx.lineCap = 'round'; tCtx.lineJoin = 'round';
-                tCtx.beginPath();
-                const sx = 100 + Math.random() * 100;
-                const sy = 100 + Math.random() * 100;
-                tCtx.moveTo(sx, sy);
-                for(let i=0; i<3; i++) {
-                    tCtx.bezierCurveTo(sx + 100, sy + 50, sx - 50, sy + 150, sx + 200, sy + 100);
+            el.innerHTML = `
+                <div class="img-box">
+                    <canvas class="thumb-canvas" id="thumb-${board.id}"></canvas>
+                </div>
+                <div class="board-badge">
+                    <span class="badge-id">${board.id}</span>
+                    <span class="badge-status">Live</span>
+                </div>
+            `;
+            
+            pageEl.appendChild(el);
+
+            // 썸네일 동기화 및 실시간 스트림 연결
+            setTimeout(() => { // 캔버스가 DOM에 붙은 후 실행 보장
+                const tCanvas = document.getElementById(`thumb-${board.id}`);
+                if(tCanvas) {
+                    tCanvas.width = 600; tCanvas.height = 400;
+                    const tCtx = tCanvas.getContext('2d');
+                    if (board.thumbnail) {
+                        const img = new Image();
+                        img.onload = () => tCtx.drawImage(img, 0, 0, 600, 400);
+                        img.src = board.thumbnail;
+                    } else {
+                        tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0, 600, 400);
+                        tCtx.strokeStyle = '#f1f5f9';
+                        tCtx.lineWidth = 10; tCtx.lineCap = 'round'; tCtx.beginPath();
+                        tCtx.moveTo(100+Math.random()*100, 100+Math.random()*100);
+                        tCtx.bezierCurveTo(300, 100, 100, 300, 400, 200);
+                        tCtx.stroke();
+                    }
+
+                    // 실시간 스트림 연결
+                    onChildAdded(ref(db, `streams/${board.id}`), (snapshot) => {
+                        const data = snapshot.val();
+                        if (data.action === 'clear') { tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0,600,400); return; }
+                        const pts = data.points;
+                        if(!pts || pts.length < 2) return;
+                        const scaleX = 600 / (data.canvasW || 1920);
+                        const scaleY = 400 / (data.canvasH || 1080);
+                        tCtx.beginPath();
+                        tCtx.lineWidth = data.width * ((scaleX + scaleY) / 2);
+                        tCtx.lineCap = 'round'; tCtx.lineJoin = 'round';
+                        tCtx.strokeStyle = data.tool === 'eraser' ? '#ffffff' : data.color;
+                        tCtx.moveTo(pts[0].x * scaleX, pts[0].y * scaleY);
+                        for(let i=1; i<pts.length; i++) tCtx.lineTo(pts[i].x * scaleX, pts[i].y * scaleY);
+                        tCtx.stroke();
+                    });
                 }
-                tCtx.stroke();
-            }
+            }, 0);
 
-            // 실시간 스트림 연결
-            onChildAdded(ref(db, `streams/${board.id}`), (snapshot) => {
-                const data = snapshot.val();
-                if (data.action === 'clear') { tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0,0,600,400); return; }
-                const pts = data.points;
-                if(!pts || pts.length < 2) return;
-                
-                const scaleX = 600 / (data.canvasW || 1920);
-                const scaleY = 400 / (data.canvasH || 1080);
-                
-                tCtx.beginPath();
-                tCtx.lineWidth = data.width * ((scaleX + scaleY) / 2);
-                tCtx.lineCap = 'round'; tCtx.lineJoin = 'round';
-                tCtx.strokeStyle = data.tool === 'eraser' ? '#ffffff' : data.color;
-                tCtx.moveTo(pts[0].x * scaleX, pts[0].y * scaleY);
-                for(let i=1; i<pts.length; i++) tCtx.lineTo(pts[i].x * scaleX, pts[i].y * scaleY);
-                tCtx.stroke();
-                tCtx.beginPath();
-            });
-        }
-        el.addEventListener('click', () => handleBoardClick(board));
-    });
+            el.addEventListener('click', () => handleBoardClick(board));
+        });
+        
+        agWrapper.appendChild(pageEl);
+    }
+    updateSlider();
 }
 
-// 3D Camera Rotation Logic (Removed for cleaner grid experience)
-// animate3D() removed
+function updateSlider() {
+    agWrapper.style.transform = `translateX(-${currentPage * 100}%)`;
+    document.getElementById('prevBtn').disabled = (currentPage === 0);
+    document.getElementById('nextBtn').disabled = (currentPage === maxPage);
+}
+
+document.getElementById('prevBtn').addEventListener('click', () => {
+    if (currentPage > 0) { currentPage--; updateSlider(); }
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+    if (currentPage < maxPage) { currentPage++; updateSlider(); }
+});
+
+// 3D Camera Logic Removed
 
 // RTDB 로비 감지 (하드코딩 40개 유지 및 2시간 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
