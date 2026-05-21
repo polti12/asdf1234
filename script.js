@@ -140,16 +140,14 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        // Firestore 대신 RTDB를 사용하여 게시글 저장
-        // (Firestore가 프로젝트에 활성화되지 않아 무한 대기 현상이 생길 수 있습니다)
-        const postsRef = ref(db, 'posts');
-        await push(postsRef, {
+        // 다시 Firestore 'posts' 컬렉션에 저장합니다.
+        // 타임스탬프 호환성 문제 리포트(먹통)를 방지하기 위해 로컬 시간을 기록합니다.
+        await addDoc(collection(firestore, 'posts'), {
             title: title || "무제",
             author: author || "익명",
-            category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
-            timestamp: Date.now() // RTDB 방식 타임스탬프
+            timestamp: Date.now() // serverTimestamp() 사용 시 오프라인/동기화 펜딩 무한대기 현상 방지
         });
 
         
@@ -176,27 +174,22 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        // RTDB에서 게시글 로드
-        onValue(ref(db, 'posts'), (snapshot) => {
-            const data = snapshot.val();
-            container.innerHTML = '';
-            
-            if (!data) {
-                const countEl = document.getElementById('count');
-                if (countEl) countEl.innerText = '0';
-                container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
-                return;
-            }
+        const q = query(collection(firestore, 'posts'), orderBy('timestamp', 'desc'));
+        const querySnapshot = await getDocs(q);
+        container.innerHTML = '';
+        
+        const countEl = document.getElementById('count');
+        if (countEl) countEl.innerText = querySnapshot.size;
 
-            // 객체를 배열로 변환하고 최신순 정렬
-            const postsArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-            postsArray.sort((a, b) => b.timestamp - a.timestamp);
-            
-            const countEl = document.getElementById('count');
-            if (countEl) countEl.innerText = postsArray.length;
+        if (querySnapshot.empty) {
+            container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
+            return;
+        }
 
-            postsArray.forEach((post) => {
-                const date = post.timestamp ? new Date(post.timestamp).toLocaleDateString('ko-KR') : '—';
+        querySnapshot.forEach((doc) => {
+            const post = doc.data();
+            const date = post.timestamp ? new Date(post.timestamp).toLocaleDateString('ko-KR') : '—';
+            
             const card = document.createElement('div');
             card.className = 'post-card';
             
@@ -238,8 +231,8 @@ async function loadPosts() {
             } else {
                 document.getElementById(imgId).innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
             }
-        }); // end forEach
-        }); // end onValue
+        });
+
     } catch (e) {
         console.error('Error loading posts:', e);
         container.innerHTML = '<div class="no-posts">Error loading archives.</div>';
