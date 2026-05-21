@@ -1,19 +1,16 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-// Firestore는 로비 메뉴(방 존재 확인, 권한) 등으로 쓰고, 드로잉 데이터는 RTDB로 나누어 쓰거나, 순수 RTDB로 씁니다.
-// 구조 단순화를 위해 전체 시스템을 RTDB로 전환합니다.
-import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
-import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // Firebase App Init
 const firebaseConfig = {
     apiKey: "AIzaSyCJAZ-QdPnygAxTt_RKH45Q7k-djU3KP4k",
     authDomain: "my-whiteboard-46af9.firebaseapp.com",
-    databaseURL: "https://my-whiteboard-46af9-default-rtdb.firebaseio.com",
+    databaseURL: "https://my-whiteboard-46af9-default-rtdb.firebaseio.com/",
     projectId: "my-whiteboard-46af9",
     storageBucket: "my-whiteboard-46af9.firebasestorage.app",
     messagingSenderId: "53282534532",
-    appId: "1:53282534532:web:607ee422ca20eb5d053ed1",
-    measurementId: "G-DYQWMPDXZM"
+    appId: "1:53282534532:web:607ee422ca20eb5d053ed1"
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -151,17 +148,16 @@ async function savePost() {
     
     try {
         saveBtn.disabled = true;
-        saveBtn.innerText = "저장 중...";
+        saveBtn.innerText = "데이터 전송 중...";
 
-        // Realtime Database로 게시물 저장
         const postsRef = ref(db, 'posts');
         await push(postsRef, {
-            title: title || "무제",
-            author: author || "익명",
+            title: title.trim(),
+            author: author.trim() || "익명",
             category: "Robot SW Lab",
-            content: content || "",
+            content: content.trim(),
             boardId: selectedSnapshotBoardId || "Unknown",
-            created_at: Date.now() // RTDB는 숫자 타임스탬프를 원활하게 처리함
+            created_at: Date.now()
         });
         
         alert("기록이 성공적으로 저장되었습니다!");
@@ -170,16 +166,24 @@ async function savePost() {
         document.getElementById('postAuthor').value = '';
         document.getElementById('postContent').value = '';
         
-        // RTDB의 onValue가 실시간으로 UI를 갱신하므로 loadPosts를 명시적으로 호출할 필요가 줄어들지만, 
-        // 기존 코드 흐름을 유지하기 위해 남겨둡니다.
     } catch (e) {
-        console.error("RTDB Save Error:", e);
-        alert("저장 중 오류 발생: " + e.message);
+        console.error("DEBUG - RTDB Save Error:", e);
+        // 사용자에게 구체적인 에러 상황을 알림
+        let errorMsg = "저장에 실패했습니다.\n";
+        if (e.code === 'PERMISSION_DENIED') {
+            errorMsg += "이유: 권한 거부 (RTDB의 Rules 탭에서 .read, .write를 true로 설정했는지 확인하세요.)";
+        } else if (e.message.includes('network')) {
+            errorMsg += "이유: 네트워크 연결 원활하지 않음";
+        } else {
+            errorMsg += "이유: " + e.message;
+        }
+        alert(errorMsg);
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
     }
 }
+
 
 
 
@@ -411,6 +415,25 @@ if (cachedTimerBase) {
     startTimer(parseInt(cachedTimerBase));
 }
 
+// 전역 타이머 관리 (새로고침 시에도 유지되도록 RTDB 전용 노드 사용)
+onValue(ref(db, 'timerBase'), (snap) => {
+    const base = snap.val();
+    const now = Date.now();
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+    if (!base || (now - base > TWO_HOURS_MS)) {
+        // 타이머가 없거나 2시간이 지났으면 새로 생성
+        const newBase = Date.now();
+        set(ref(db, 'timerBase'), newBase);
+        localStorage.setItem('lastTimerBase', newBase);
+        startTimer(newBase);
+    } else {
+        // 기존 타이머 유지
+        localStorage.setItem('lastTimerBase', base);
+        startTimer(base);
+    }
+});
+
 // RTDB 로비 감지 (하드코딩 42개 유지 및 2시간 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
     const data = snapshot.val() || {};
@@ -419,25 +442,27 @@ onValue(ref(db, 'whiteboards'), (snapshot) => {
     const now = Date.now();
     let didReset = false;
     
-    // 항상 Gallery-1부터 Gallery-42까지 무조건 채워넣기 보장
-    for(let i=1; i<=42; i++) {
-        const key = `Gallery-${i}`;
-        if (!data[key]) {
-            updates[key] = { createdAt: now, thumbnail: "" };
-            didReset = true;
-        } else if (now - data[key].createdAt > TWO_HOURS_MS) {
-            updates[key] = { createdAt: now, thumbnail: "" };
-            remove(ref(db, `streams/${key}`));
-            didReset = true;
+    // 타이머 기준점이 있는지 확인 (timerBase가 있다면 그것을 기준으로 보드 리셋 여부 판단)
+    get(ref(db, 'timerBase')).then(timerSnap => {
+        const timerBase = timerSnap.val() || now;
+        
+        // 항상 Gallery-1부터 Gallery-42까지 무조건 채워넣기 보장
+        for(let i=1; i<=42; i++) {
+            const key = `Gallery-${i}`;
+            // 보드가 없거나, 기준 타이머가 갱신되었을 때만 리셋
+            if (!data[key] || (now - timerBase > TWO_HOURS_MS)) {
+                updates[key] = { createdAt: timerBase, thumbnail: "" };
+                remove(ref(db, `streams/${key}`));
+                didReset = true;
+            }
         }
-    }
-    
-    if(didReset) {
-        update(ref(db, 'whiteboards'), updates);
-        // 트로피 보드 갯수 증가
-        update(ref(db, 'globalStats'), { totalBoards: increment(42) }).catch(()=>{});
-        return; // 업데이트 시 onValue가 새로 트리거되므로 렌더링 스킵
-    }
+        
+        if(didReset) {
+            update(ref(db, 'whiteboards'), updates);
+            // 트로피 보드 갯수 증가
+            update(ref(db, 'globalStats'), { totalBoards: increment(42) }).catch(()=>{});
+        }
+    });
 
     // 예전에 만들어둔 잡다한 보드 찌꺼기 무시하고 딱 42개만 렌더링
     const finalData = {};
@@ -445,13 +470,8 @@ onValue(ref(db, 'whiteboards'), (snapshot) => {
         finalData[`Gallery-${i}`] = data[`Gallery-${i}`];
     }
     renderBoardGrid(finalData); // 방 목록 및 썸네일 새로고침
-    
-    // 타이머 UI 동기화 (Gallery-1 기준) 및 즉각적 캐싱
-    if (finalData['Gallery-1'] && finalData['Gallery-1'].createdAt) {
-        localStorage.setItem('lastTimerBase', finalData['Gallery-1'].createdAt);
-        startTimer(finalData['Gallery-1'].createdAt);
-    }
 });
+
 
 let resetInterval = null;
 function startTimer(baseTime) {
