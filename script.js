@@ -378,48 +378,52 @@ document.getElementById('nextBtn').addEventListener('click', () => {
     if (currentPage < maxPage) { currentPage++; updateSlider(); }
 });
 
-// 타이머 초기 깜빡임 방지용 로컬 캐시 적용
+// 타이머 초기 깜빡임 방지 (캐시로 즉시 시작)
 const cachedTimerBase = localStorage.getItem('lastTimerBase');
 if (cachedTimerBase) {
-    startTimer(parseInt(cachedTimerBase));
+    startTimer(Number(cachedTimerBase));
 }
 
-// 전역 타이머 관리 (새로고침 시에도 유지되도록 RTDB 전용 노드 사용)
+// 전역 타이머 관리: RTDB의 단일 출처(Single Source of Truth) 사용
 onValue(ref(db, 'timerBase'), (snap) => {
     const base = snap.val();
     const now = Date.now();
     const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
-    if (!base || (now - base > TWO_HOURS_MS)) {
-        // 타이머가 없거나 2시간이 지났으면 새로 생성
+    if (!base || (now - Number(base) > TWO_HOURS_MS)) {
+        // 타이머가 만료되었거나 없을 때만 단 한 번 새로 생성
         const newBase = Date.now();
-        set(ref(db, 'timerBase'), newBase);
-        localStorage.setItem('lastTimerBase', newBase);
-        startTimer(newBase);
+        set(ref(db, 'timerBase'), newBase).then(() => {
+            console.log("Global timer synchronized.");
+        });
     } else {
-        // 기존 타이머 유지
-        localStorage.setItem('lastTimerBase', base);
-        startTimer(base);
+        // 기존 타이머로 즉시 업데이트
+        const stableBase = Number(base);
+        localStorage.setItem('lastTimerBase', stableBase);
+        startTimer(stableBase);
     }
+}, (err) => {
+    console.error("Timer Sync Error:", err);
+    document.getElementById('resetTimer').innerText = "OFFLINE";
 });
 
-// RTDB 로비 감지 (하드코딩 42개 유지 및 2시간 리셋)
+
+// RTDB 로비 감지 (42개 유지 및 타이머 기반 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
-    const data = snapshot.val() || {};
-    let updates = {};
-    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const boards = snapshot.val() || {};
     const now = Date.now();
-    let didReset = false;
-    
-    // 타이머 기준점이 있는지 확인 (timerBase가 있다면 그것을 기준으로 보드 리셋 여부 판단)
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+    // timerBase를 먼저 확인하여 리셋 여부 결정 (최적화)
     get(ref(db, 'timerBase')).then(timerSnap => {
-        const timerBase = timerSnap.val() || now;
-        
-        // 항상 Gallery-1부터 Gallery-42까지 무조건 채워넣기 보장
+        const timerBase = Number(timerSnap.val() || now);
+        let updates = {};
+        let didReset = false;
+
         for(let i=1; i<=42; i++) {
             const key = `Gallery-${i}`;
-            // 보드가 없거나, 기준 타이머가 갱신되었을 때만 리셋
-            if (!data[key] || (now - timerBase > TWO_HOURS_MS)) {
+            // 보드가 없거나, 보드의 생성 시간이 현재 타이머 기준점보다 이전이면 리셋
+            if (!boards[key] || Number(boards[key].createdAt) < timerBase) {
                 updates[key] = { createdAt: timerBase, thumbnail: "" };
                 remove(ref(db, `streams/${key}`));
                 didReset = true;
@@ -428,17 +432,13 @@ onValue(ref(db, 'whiteboards'), (snapshot) => {
         
         if(didReset) {
             update(ref(db, 'whiteboards'), updates);
-            // 트로피 보드 갯수 증가
             update(ref(db, 'globalStats'), { totalBoards: increment(42) }).catch(()=>{});
         }
     });
 
-    // 예전에 만들어둔 잡다한 보드 찌꺼기 무시하고 딱 42개만 렌더링
     const finalData = {};
-    for(let i=1; i<=42; i++) {
-        finalData[`Gallery-${i}`] = data[`Gallery-${i}`];
-    }
-    renderBoardGrid(finalData); // 방 목록 및 썸네일 새로고침
+    for(let i=1; i<=42; i++) finalData[`Gallery-${i}`] = boards[`Gallery-${i}`] || { thumbnail: "" };
+    renderBoardGrid(finalData);
 });
 
 
