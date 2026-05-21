@@ -38,7 +38,7 @@ let permissionUnsubscribe = null;
 
 // --- Board Grid (Lobby) Rendering & Pagination ---
 let currentPage = 0;
-const boardsPerPage = 8;
+const boardsPerPage = 6;
 let maxPage = 0;
 
 function renderBoardGrid(boardsObj) {
