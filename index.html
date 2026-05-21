@@ -21,7 +21,7 @@
             </div>
             <p class="lobby-hint">아무 보드나 자유롭게 들어가서 그림을 그려보세요! (2시간마다 초기화)</p>
             <div style="margin-top: 25px;">
-                <button class="nav-btn community-btn" onclick="location.href='board.html'"><i class="fa-solid fa-users"></i> 커뮤니티 혁신 기록</button>
+                <button class="nav-btn community-btn" id="openCommunityBtn"><i class="fa-solid fa-users"></i> 커뮤니티 혁신 기록</button>
             </div>
             <div id="lobbyNotice" class="notice-msg"></div>
         </header>
@@ -35,6 +35,68 @@
             </div>
             <button id="nextBtn" class="nav-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
         </section>
+    </div>
+
+    <!-- Community View Container -->
+    <div id="communityView" class="view-container">
+        <div class="board-container">
+            <header class="board-header">
+                <div>
+                    <h1 class="board-title">INNOVATION <span class="board-count" id="count">0</span></h1>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <button class="nav-btn" id="backToLobbyBtn"><i class="fa-solid fa-arrow-left"></i> 로비</button>
+                    <button class="nav-btn primary-btn" id="toggleWrite"><i class="fa-solid fa-pen-nib"></i> 기록 보관하기</button>
+                </div>
+            </header>
+
+            <div id="postCardContainer" class="card-grid">
+                <!-- Posts will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Visual Board Selector Modal -->
+    <div id="boardSelectorModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>기록할 캔버스 스냅샷 선택</h2>
+                <button class="close-modal" id="closeSelectorBtn">&times;</button>
+            </div>
+            <div id="selectorGrid" class="selector-grid">
+                <!-- 40 Boards will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Post Form Overlay (Final Step) -->
+    <div id="postFormOverlay" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="selectedBoardTitle">BOARD SNAPSHOT</h2>
+            </div>
+            <div class="form-body">
+                <div class="form-group">
+                    <label>제목</label>
+                    <input type="text" id="postTitle" placeholder="제목을 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label>작성자</label>
+                    <input type="text" id="postAuthor" placeholder="작성자를 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label>내용</label>
+                    <textarea id="postContent" rows="5" placeholder="내용을 입력하세요"></textarea>
+                </div>
+                <div class="selected-snapshot-preview" id="snapshotPreview">
+                    <!-- Selected thumb will show here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="nav-btn" id="cancelPostBtn">취소</button>
+                    <button class="nav-btn primary-btn" id="savePost">기록 저장</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Whiteboard Interactive View (Overlay) -->

@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
 // Firestore는 로비 메뉴(방 존재 확인, 권한) 등으로 쓰고, 드로잉 데이터는 RTDB로 나누어 쓰거나, 순수 RTDB로 씁니다.
 // 구조 단순화를 위해 전체 시스템을 RTDB로 전환합니다.
-import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
 // Firebase App Init
 const firebaseConfig = {
@@ -16,6 +17,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const firestore = getFirestore(app);
 
 // Local User Session
 if (!sessionStorage.getItem('myUserId')) {
@@ -26,6 +28,7 @@ const myUserId = sessionStorage.getItem('myUserId');
 // DOM Elements
 const lobbyView = document.getElementById('lobbyView');
 const whiteboardView = document.getElementById('whiteboardView');
+const communityView = document.getElementById('communityView');
 const agWrapper = document.getElementById('agWrapper');
 const lobbyNotice = document.getElementById('lobbyNotice');
 
@@ -35,6 +38,167 @@ let isOwner = false;
 let boardUnsubscribe = null;
 let streamUnsubscribe = null;
 let permissionUnsubscribe = null;
+
+// --- View & Navigation Management ---
+function switchView(viewId) {
+    document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById(viewId);
+    if(target) target.classList.add('active');
+    
+    if(viewId === 'communityView') {
+        loadPosts();
+    }
+}
+
+// --- Visual Board Selector logic ---
+let selectedSnapshotData = null;
+let selectedSnapshotBoardId = null;
+
+function openBoardSelector() {
+    const grid = document.getElementById('selectorGrid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    
+    for(let i=1; i<=40; i++) {
+        const item = document.createElement('div');
+        item.className = 'selector-item';
+        
+        const thumb = document.createElement('div');
+        thumb.className = 'selector-thumb';
+        
+        const boardRef = ref(db, `boards/board${i}/thumbnail`);
+        get(boardRef).then(snapshot => {
+            const dataUrl = snapshot.val();
+            if(dataUrl) {
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                thumb.appendChild(img);
+            }
+        });
+        
+        const label = document.createElement('div');
+        label.className = 'selector-label';
+        label.innerText = `BOARD ${i}`;
+        
+        item.appendChild(thumb);
+        item.appendChild(label);
+        
+        item.onclick = () => selectBoardForPost(i);
+        grid.appendChild(item);
+    }
+    
+    document.getElementById('boardSelectorModal').classList.add('active');
+}
+
+function selectBoardForPost(boardId) {
+    selectedSnapshotBoardId = boardId;
+    document.getElementById('boardSelectorModal').classList.remove('active');
+    
+    const boardRef = ref(db, `boards/board${boardId}/thumbnail`);
+    get(boardRef).then(snapshot => {
+        selectedSnapshotData = snapshot.val();
+        
+        const titleEl = document.getElementById('selectedBoardTitle');
+        if(titleEl) titleEl.innerText = `BOARD ${boardId} SNAPSHOT`;
+        
+        const preview = document.getElementById('snapshotPreview');
+        if(preview) {
+            preview.innerHTML = '';
+            if(selectedSnapshotData) {
+                const img = document.createElement('img');
+                img.src = selectedSnapshotData;
+                preview.appendChild(img);
+            } else {
+                preview.innerText = '스냅샷 데이터가 없습니다.';
+            }
+        }
+        
+        document.getElementById('postFormOverlay').classList.add('active');
+    });
+}
+
+// --- Firestore Community Logic ---
+async function savePost() {
+    const title = document.getElementById('postTitle').value;
+    const author = document.getElementById('postAuthor').value;
+    const content = document.getElementById('postContent').value;
+
+    if(!title || !content) return alert("제목과 내용을 입력해주세요.");
+
+    try {
+        await addDoc(collection(firestore, 'posts'), {
+            title,
+            author: author || "익명",
+            content,
+            boardId: selectedSnapshotBoardId,
+            attachedImage: selectedSnapshotData,
+            timestamp: serverTimestamp()
+        });
+        
+        alert("기록이 성공적으로 저장되었습니다!");
+        document.getElementById('postFormOverlay').classList.remove('active');
+        document.getElementById('postTitle').value = '';
+        document.getElementById('postAuthor').value = '';
+        document.getElementById('postContent').value = '';
+        
+        loadPosts();
+    } catch (e) {
+        console.error("Error adding document: ", e);
+    }
+}
+
+async function loadPosts() {
+    const container = document.getElementById('postCardContainer');
+    if(!container) return;
+    container.innerHTML = '<p style="font-family: var(--font-mono); font-size: 0.8rem;">LOADING ARCHIVES...</p>';
+    
+    try {
+        const q = query(collection(firestore, 'posts'), orderBy('timestamp', 'desc'));
+        const querySnapshot = await getDocs(q);
+        container.innerHTML = '';
+        const countEl = document.getElementById('count');
+        if(countEl) countEl.innerText = querySnapshot.size;
+
+        querySnapshot.forEach((doc) => {
+            const post = doc.data();
+            const date = post.timestamp ? post.timestamp.toDate().toLocaleDateString() : 'Just now';
+            
+            const card = document.createElement('div');
+            card.className = 'post-card';
+            card.innerHTML = `
+                <div class="post-img">
+                    ${post.attachedImage ? `<img src="${post.attachedImage}" alt="Snapshot">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ccc;">NO IMAGE</div>'}
+                </div>
+                <div class="post-info">
+                    <div class="post-header">
+                        <span class="post-tag">BOARD ${post.boardId || '?'}</span>
+                        <span class="post-date">${date}</span>
+                    </div>
+                    <div class="post-title-text">${post.title}</div>
+                    <div class="post-desc">${post.content}</div>
+                    <div class="post-footer">
+                        <span>BY ${post.author}</span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    } catch (e) {
+        console.error("Error loading posts: ", e);
+        container.innerHTML = '<p>Error loading archives.</p>';
+    }
+}
+
+// --- Event Listeners ---
+document.getElementById('openCommunityBtn')?.addEventListener('click', () => switchView('communityView'));
+document.getElementById('backToLobbyBtn')?.addEventListener('click', () => switchView('lobbyView'));
+document.getElementById('toggleWrite')?.addEventListener('click', openBoardSelector);
+document.getElementById('closeSelectorBtn')?.addEventListener('click', () => document.getElementById('boardSelectorModal').classList.remove('active'));
+document.getElementById('cancelPostBtn')?.addEventListener('click', () => document.getElementById('postFormOverlay').classList.remove('active'));
+document.getElementById('savePost')?.addEventListener('click', savePost);
 
 // --- Board Grid (Lobby) Rendering & Pagination ---
 let currentPage = 0;
