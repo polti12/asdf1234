@@ -143,8 +143,9 @@ async function savePost(e) {
     const title = document.getElementById('postTitle').value;
     const author = document.getElementById('postAuthor').value;
     const content = document.getElementById('postContent').value;
+    const password = document.getElementById('postPassword').value;
 
-    if(!title || !content) return alert("제목과 내용을 입력해주세요.");
+    if(!title || !content || !password) return alert("제목, 내용, 비밀번호를 모두 입력해주세요.");
 
     const saveBtn = document.getElementById('savePost');
     const originalText = saveBtn.innerHTML;
@@ -161,6 +162,7 @@ async function savePost(e) {
             category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
+            password: password, // 수정/삭제용 비밀번호 저장
             created_at: Date.now()
         });
 
@@ -169,6 +171,7 @@ async function savePost(e) {
         document.getElementById('postTitle').value = '';
         document.getElementById('postAuthor').value = '';
         document.getElementById('postContent').value = '';
+        document.getElementById('postPassword').value = '';
         
         // onValue가 자동 갱신하므로 별도 로드 함수 호출 불필요 (하지만 안전상 유지)
         loadPosts();
@@ -226,15 +229,25 @@ async function loadPosts() {
                         </div>
                         <div class="post-title-text">${post.title}</div>
                         <div class="post-desc">${post.content}</div>
-                        <div class="post-footer">
-                            BY ${post.author}
-                            <div class="post-actions">
-                                <button class="post-action-btn edit-btn" data-id="${postId}" data-title="${post.title}" data-content="${post.content}">수정</button>
-                                <button class="post-action-btn del-btn" data-id="${postId}">삭제</button>
-                            </div>
+                    <div class="post-footer">
+                        BY ${post.author}
+                        <div class="post-actions">
+                            <button class="post-action-btn edit-btn" data-id="${postId}" data-title="${post.title}" data-content="${post.content}" data-pass="${post.password}">EDIT</button>
+                            <button class="post-action-btn del-btn" data-id="${postId}" data-pass="${post.password}">DELETE</button>
                         </div>
                     </div>
-                `;
+                    <!-- Comments Section -->
+                    <div class="post-comments-area">
+                        <div class="comment-list" id="comments-${postId}">
+                            ${renderComments(post.comments)}
+                        </div>
+                        <div class="comment-input-box">
+                            <input type="text" id="input-${postId}" placeholder="댓글을 입력하세요...">
+                            <button class="comment-submit-btn" onclick="addComment('${postId}')">POST</button>
+                        </div>
+                    </div>
+                </div>
+            `;
                 container.appendChild(card);
                 
                 if (post.boardId && post.boardId !== "Unknown") {
@@ -272,29 +285,68 @@ function attachPostListeners() {
     document.querySelectorAll('.del-btn').forEach(btn => {
         btn.onclick = async (e) => {
             const id = e.target.dataset.id;
-            if(confirm("이 기록을 삭제하시겠습니까?")) {
-                await remove(ref(db, 'robot_board_records/' + id));
+            const correctPass = e.target.dataset.pass;
+            const inputPass = prompt("비밀번호를 입력하세요:");
+            
+            if (inputPass === correctPass) {
+                if(confirm("정말로 삭제하시겠습니까?")) {
+                    await remove(ref(db, 'robot_board_records/' + id));
+                }
+            } else if (inputPass !== null) {
+                alert("비밀번호가 일치하지 않습니다.");
             }
         };
     });
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.onclick = async (e) => {
             const id = e.target.dataset.id;
+            const correctPass = e.target.dataset.pass;
             const oldTitle = e.target.dataset.title;
             const oldContent = e.target.dataset.content;
             
-            const newTitle = prompt("수정할 제목:", oldTitle);
-            if(newTitle === null) return;
-            
-            const newContent = prompt("수정할 내용:", oldContent);
-            if(newContent === null) return;
-            
-            await update(ref(db, 'robot_board_records/' + id), {
-                title: newTitle,
-                content: newContent
-            });
+            const inputPass = prompt("비밀번호를 입력하세요:");
+            if (inputPass === correctPass) {
+                const newTitle = prompt("수정할 제목:", oldTitle);
+                if(newTitle === null) return;
+                
+                const newContent = prompt("수정할 내용:", oldContent);
+                if(newContent === null) return;
+                
+                await update(ref(db, 'robot_board_records/' + id), {
+                    title: newTitle,
+                    content: newContent
+                });
+            } else if (inputPass !== null) {
+                alert("비밀번호가 일치하지 않습니다.");
+            }
         };
     });
+}
+
+function renderComments(comments) {
+    if (!comments) return '<p style="font-size:0.7rem; color:var(--text-muted);">아직 댓글이 없습니다.</p>';
+    return Object.keys(comments).map(k => `
+        <div class="comment-item">
+            <span class="author">익명</span>
+            ${comments[k].text}
+        </div>
+    `).join('');
+}
+
+window.addComment = async function(postId) {
+    const input = document.getElementById(`input-${postId}`);
+    const text = input.value.trim();
+    if (!text) return;
+
+    try {
+        await push(ref(db, `robot_board_records/${postId}/comments`), {
+            text: text,
+            timestamp: Date.now()
+        });
+        input.value = '';
+    } catch (e) {
+        alert("댓글 작성 오류");
+    }
 }
 
 // --- Event Listeners ---
