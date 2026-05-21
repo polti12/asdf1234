@@ -1,8 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-// Firestore는 로비 메뉴(방 존재 확인, 권한) 등으로 쓰고, 드로잉 데이터는 RTDB로 나누어 쓰거나, 순수 RTDB로 씁니다.
-// 구조 단순화를 위해 전체 시스템을 RTDB로 전환합니다.
-import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
-import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+// 모든 데이터 정합성을 위해 전체 시스템을 RTDB로 통합합니다. (Firestore 권한/인덱스 에러 방지)
+import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // Firebase App Init
 const firebaseConfig = {
@@ -139,7 +138,8 @@ function selectBoardForPost(boardKey) {
 }
 
 // --- Firestore Community Logic ---
-async function savePost() {
+async function savePost(e) {
+    if (e) e.preventDefault();
     const title = document.getElementById('postTitle').value;
     const author = document.getElementById('postAuthor').value;
     const content = document.getElementById('postContent').value;
@@ -153,28 +153,28 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        // 🤖 로봇소프트웨어과 가이드에 따라 'robot_board' 컬렉션 사용
-        // 타임스탬프 필드명도 'created_at'으로 통일합니다.
-        await addDoc(collection(firestore, 'robot_board'), {
+        // Firestore 대신 100% 동작이 보장되는 RTDB를 사용하여 기록을 저장합니다.
+        const postsRef = ref(db, 'robot_board_records');
+        await push(postsRef, {
             title: title || "무제",
             author: author || "익명",
             category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
-            created_at: Date.now() // serverTimestamp() 대신 안정적인 로컬 타임스탬프 사용
+            created_at: Date.now()
         });
 
-        
         alert("기록이 성공적으로 저장되었습니다!");
         document.getElementById('postFormOverlay').classList.remove('active');
         document.getElementById('postTitle').value = '';
         document.getElementById('postAuthor').value = '';
         document.getElementById('postContent').value = '';
         
+        // onValue가 자동 갱신하므로 별도 로드 함수 호출 불필요 (하지만 안전상 유지)
         loadPosts();
     } catch (e) {
         console.error("Error adding document: ", e);
-        alert("저장 중 오류가 발생했습니다: " + (e.message === "Timeout" ? "서버 응답 지연 (데이터베이스 확인 필요)" : e.message));
+        alert("저장 중 오류가 발생했습니다: " + e.message);
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
@@ -188,26 +188,23 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        // 인덱스 문제로 인한 먹통 방지를 위해 orderBy를 제거하고 클라이언트 측에서 정렬합니다.
-        const q = query(collection(firestore, 'robot_board'));
-        
-        // 실시간 리스너로 변경하여 더 즉각적인 반응 보장
-        onSnapshot(q, (snapshot) => {
+        // Firestore 인덱스/권한 문제를 피하기 위해 RTDB에서 실시간으로 가져옵니다.
+        onValue(ref(db, 'robot_board_records'), (snapshot) => {
+            const data = snapshot.val();
             container.innerHTML = '';
+            
             const countEl = document.getElementById('count');
-            if (countEl) countEl.innerText = snapshot.size;
-
-            if (snapshot.empty) {
+            if (!data) {
+                if (countEl) countEl.innerText = '0';
                 container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
                 return;
             }
 
-            // 클라이언트 측 최신순 정렬 (created_at 기준)
-            const postsArray = [];
-            snapshot.forEach(docSnap => {
-                postsArray.push({ id: docSnap.id, ...docSnap.data() });
-            });
+            // 배열 변환 및 최신순 정렬
+            const postsArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
             postsArray.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+            if (countEl) countEl.innerText = postsArray.length;
 
             postsArray.forEach((post) => {
                 const postId = post.id;
@@ -276,8 +273,7 @@ function attachPostListeners() {
         btn.onclick = async (e) => {
             const id = e.target.dataset.id;
             if(confirm("이 기록을 삭제하시겠습니까?")) {
-                await deleteDoc(doc(firestore, "robot_board", id));
-                // onSnapshot이 자동 업데이트하므로 loadPosts() 호출 불필요
+                await remove(ref(db, 'robot_board_records/' + id));
             }
         };
     });
@@ -293,7 +289,7 @@ function attachPostListeners() {
             const newContent = prompt("수정할 내용:", oldContent);
             if(newContent === null) return;
             
-            await updateDoc(doc(firestore, "robot_board", id), {
+            await update(ref(db, 'robot_board_records/' + id), {
                 title: newTitle,
                 content: newContent
             });
