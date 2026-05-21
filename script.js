@@ -140,13 +140,14 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        await addDoc(collection(firestore, 'posts'), {
+        await addDoc(collection(firestore, 'robot_board'), {
             title: title || "무제",
             author: author || "익명",
+            category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
             attachedImage: selectedSnapshotData ? selectedSnapshotData : null,
-            timestamp: serverTimestamp()
+            created_at: serverTimestamp()
         });
         
         alert("기록이 성공적으로 저장되었습니다!");
@@ -171,7 +172,7 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        const q = query(collection(firestore, 'posts'), orderBy('timestamp', 'desc'));
+        const q = query(collection(firestore, 'robot_board'), orderBy('created_at', 'desc'));
         const querySnapshot = await getDocs(q);
         container.innerHTML = '';
         const countEl = document.getElementById('count');
@@ -184,7 +185,7 @@ async function loadPosts() {
 
         querySnapshot.forEach((doc) => {
             const post = doc.data();
-            const date = post.timestamp ? post.timestamp.toDate().toLocaleDateString('ko-KR') : '—';
+            const date = post.created_at ? post.created_at.toDate().toLocaleDateString('ko-KR') : '—';
             const card = document.createElement('div');
             card.className = 'post-card';
             card.innerHTML = `
