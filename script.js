@@ -141,11 +141,11 @@ async function savePost() {
         saveBtn.innerText = "저장 중...";
 
         await addDoc(collection(firestore, 'posts'), {
-            title,
+            title: title || "무제",
             author: author || "익명",
-            content,
-            boardId: selectedSnapshotBoardId,
-            attachedImage: selectedSnapshotData || "",
+            content: content || "",
+            boardId: selectedSnapshotBoardId || "Unknown",
+            attachedImage: selectedSnapshotData ? selectedSnapshotData : null,
             timestamp: serverTimestamp()
         });
         

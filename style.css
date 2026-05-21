@@ -188,24 +188,42 @@ body {
 }
 
 /* JOIN hover overlay */
-.gallery-item .img-box::after {
-    content: 'JOIN';
+.gallery-item .img-box::before {
+    content: '';
     position: absolute;
     inset: 0;
-    background: rgba(26, 26, 26, 0.75);
+    background: rgba(24, 24, 26, 0.9);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    backdrop-filter: blur(3px);
+    z-index: 10;
+}
+.gallery-item .img-box::after {
+    content: 'J O I N \2192';
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.2em;
+    font-family: var(--font-main);
+    font-size: 1.15rem;
+    font-weight: 900;
+    letter-spacing: 0.4em;
     color: #ffffff;
     opacity: 0;
-    transition: opacity 0.35s ease;
-    backdrop-filter: blur(2px);
+    transform: translateY(20px);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 11;
 }
-.gallery-item:hover .img-box::after { opacity: 1; }
+
+.gallery-item:hover .img-box::before {
+    opacity: 1;
+}
+.gallery-item:hover .img-box::after { 
+    opacity: 1;
+    transform: translateY(0);
+}
+
 
 .thumb-canvas { width: 100%; height: 100%; display: block; background: #f0ede8; }
 
