@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebas
 // Firestore는 로비 메뉴(방 존재 확인, 권한) 등으로 쓰고, 드로잉 데이터는 RTDB로 나누어 쓰거나, 순수 RTDB로 씁니다.
 // 구조 단순화를 위해 전체 시스템을 RTDB로 전환합니다.
 import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
-import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
 // Firebase App Init
 const firebaseConfig = {
@@ -188,106 +188,117 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        const q = query(collection(firestore, 'robot_board'), orderBy('created_at', 'desc'));
-        const querySnapshot = await getDocs(q);
-        container.innerHTML = '';
+        // 인덱스 문제로 인한 먹통 방지를 위해 orderBy를 제거하고 클라이언트 측에서 정렬합니다.
+        const q = query(collection(firestore, 'robot_board'));
         
-        const countEl = document.getElementById('count');
-        if (countEl) countEl.innerText = querySnapshot.size;
+        // 실시간 리스너로 변경하여 더 즉각적인 반응 보장
+        onSnapshot(q, (snapshot) => {
+            container.innerHTML = '';
+            const countEl = document.getElementById('count');
+            if (countEl) countEl.innerText = snapshot.size;
 
-        if (querySnapshot.empty) {
-            container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
-            return;
-        }
+            if (snapshot.empty) {
+                container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
+                return;
+            }
 
-        querySnapshot.forEach((docSnap) => {
-            const post = docSnap.data();
-            const postId = docSnap.id;
-            const date = post.created_at ? new Date(post.created_at).toLocaleDateString('ko-KR') : '—';
-            
-            const card = document.createElement('div');
-            card.className = 'post-card';
-            
-            // Dynamic image rendering using an ID so we can fetch it asynchronously
-            const imgId = "img-" + Math.random().toString(36).substr(2, 9);
-            
-            card.innerHTML = `
-                <div class="post-img" id="${imgId}">
-                    <div class="no-img">LOADING...</div>
-                </div>
-                <div class="post-info">
-                    <div class="post-header">
-                        <span class="post-tag">${post.boardId || '?'}</span>
-                        <span class="post-date">${date}</span>
+            // 클라이언트 측 최신순 정렬 (created_at 기준)
+            const postsArray = [];
+            snapshot.forEach(docSnap => {
+                postsArray.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            postsArray.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+            postsArray.forEach((post) => {
+                const postId = post.id;
+                const date = post.created_at ? new Date(post.created_at).toLocaleDateString('ko-KR') : '—';
+                
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                
+                const imgId = "img-" + Math.random().toString(36).substr(2, 9);
+                
+                card.innerHTML = `
+                    <div class="post-img" id="${imgId}">
+                        <div class="no-img">LOADING...</div>
                     </div>
-                    <div class="post-title-text">${post.title}</div>
-                    <div class="post-desc">${post.content}</div>
-                    <div class="post-footer">
-                        BY ${post.author}
-                        <div class="post-actions">
-                            <button class="post-action-btn edit-btn" data-id="${postId}" data-title="${post.title}" data-content="${post.content}">수정</button>
-                            <button class="post-action-btn del-btn" data-id="${postId}">삭제</button>
+                    <div class="post-info">
+                        <div class="post-header">
+                            <span class="post-tag">${post.boardId || '?'}</span>
+                            <span class="post-date">${date}</span>
+                        </div>
+                        <div class="post-title-text">${post.title}</div>
+                        <div class="post-desc">${post.content}</div>
+                        <div class="post-footer">
+                            BY ${post.author}
+                            <div class="post-actions">
+                                <button class="post-action-btn edit-btn" data-id="${postId}" data-title="${post.title}" data-content="${post.content}">수정</button>
+                                <button class="post-action-btn del-btn" data-id="${postId}">삭제</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            container.appendChild(card);
-            
-            // Asynchronously fetch the image from Realtime Database instead of Firestore
-            if (post.boardId && post.boardId !== "Unknown") {
-                get(ref(db, `whiteboards/${post.boardId}/thumbnail`)).then(snap => {
-                    const dataUrl = snap.val();
-                    const imgContainer = document.getElementById(imgId);
-                    if (imgContainer) {
-                        if (dataUrl) {
-                            imgContainer.innerHTML = `<img src="${dataUrl}" alt="Snapshot" loading="lazy">`;
-                        } else {
-                            imgContainer.innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
+                `;
+                container.appendChild(card);
+                
+                if (post.boardId && post.boardId !== "Unknown") {
+                    get(ref(db, `whiteboards/${post.boardId}/thumbnail`)).then(snap => {
+                        const dataUrl = snap.val();
+                        const imgContainer = document.getElementById(imgId);
+                        if (imgContainer) {
+                            if (dataUrl) {
+                                imgContainer.innerHTML = `<img src="${dataUrl}" alt="Snapshot" loading="lazy">`;
+                            } else {
+                                imgContainer.innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
+                            }
                         }
-                    }
-                }).catch(() => {
+                    }).catch(() => {
+                        const imgContainer = document.getElementById(imgId);
+                        if (imgContainer) imgContainer.innerHTML = '<div class="no-img">ERROR</div>';
+                    });
+                } else {
                     const imgContainer = document.getElementById(imgId);
-                    if (imgContainer) imgContainer.innerHTML = '<div class="no-img">ERROR</div>';
-                });
-            } else {
-                document.getElementById(imgId).innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
-            }
-        });
-
-        // Add Edit & Delete Listeners
-        document.querySelectorAll('.del-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const id = e.target.dataset.id;
-                if(confirm("이 기록을 삭제하시겠습니까?")) {
-                    await deleteDoc(doc(firestore, "robot_board", id));
-                    loadPosts();
+                    if (imgContainer) imgContainer.innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
                 }
             });
-        });
-        document.querySelectorAll('.edit-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const id = e.target.dataset.id;
-                const oldTitle = e.target.dataset.title;
-                const oldContent = e.target.dataset.content;
-                
-                const newTitle = prompt("수정할 제목:", oldTitle);
-                if(newTitle === null) return;
-                
-                const newContent = prompt("수정할 내용:", oldContent);
-                if(newContent === null) return;
-                
-                await updateDoc(doc(firestore, "robot_board", id), {
-                    title: newTitle,
-                    content: newContent
-                });
-                loadPosts();
-            });
+
+            // 이벤트 리스너 재등록
+            attachPostListeners();
         });
 
     } catch (e) {
         console.error('Error loading posts:', e);
         container.innerHTML = '<div class="no-posts">Error loading archives.</div>';
     }
+}
+
+function attachPostListeners() {
+    document.querySelectorAll('.del-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            const id = e.target.dataset.id;
+            if(confirm("이 기록을 삭제하시겠습니까?")) {
+                await deleteDoc(doc(firestore, "robot_board", id));
+                // onSnapshot이 자동 업데이트하므로 loadPosts() 호출 불필요
+            }
+        };
+    });
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            const id = e.target.dataset.id;
+            const oldTitle = e.target.dataset.title;
+            const oldContent = e.target.dataset.content;
+            
+            const newTitle = prompt("수정할 제목:", oldTitle);
+            if(newTitle === null) return;
+            
+            const newContent = prompt("수정할 내용:", oldContent);
+            if(newContent === null) return;
+            
+            await updateDoc(doc(firestore, "robot_board", id), {
+                title: newTitle,
+                content: newContent
+            });
+        };
+    });
 }
 
 // --- Event Listeners ---
