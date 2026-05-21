@@ -85,17 +85,14 @@ body {
     gap: 20px;
 }
 
-.timer-badge {
+.timer-integrated {
     font-family: var(--font-mono);
-    font-size: clamp(1rem, 2vw, 1.8rem);
-    font-weight: 700;
-    background: var(--text-primary);
-    color: #ffffff;
-    padding: 6px 16px;
-    border-radius: 4px;
-    letter-spacing: 0.05em;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    font-size: 0.55em; /* blends into the title relative size */
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 5px;
+    letter-spacing: 0;
+    vertical-align: middle;
 }
 
 .logo-accent {
@@ -483,19 +480,6 @@ body {
     align-items: center;
 }
 
-.judges-faces {
-    display: flex;
-    margin-bottom: 50px;
-    filter: grayscale(100%) contrast(1.2);
-}
-.judges-faces img {
-    width: 40px;
-    height: 40px;
-    object-fit: cover;
-    border: 1px solid var(--text-primary);
-    margin-left: -1px; /* collapse borders */
-}
-
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -572,6 +556,53 @@ body {
 }
 .post-action-btn:hover {
     color: var(--text-primary);
+}
+
+/* ===================================
+   RESPONSIVE DESIGN (MOBILE ADAPTATION)
+=================================== */
+@media (max-width: 900px) {
+    .gallery-page, .card-grid, .stats-grid, .selector-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .stats-hero-banner {
+        flex-direction: column;
+        text-align: center;
+        gap: 30px;
+    }
+    .cssda-badge-wrapper {
+        flex-direction: column;
+    }
+    .stats-intro-text {
+        text-align: center;
+    }
+}
+
+@media (max-width: 600px) {
+    .gallery-page, .card-grid, .stats-grid, .selector-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .lobby-header {
+        padding: 40px 20px;
+    }
+    .stats-bottom-panel {
+        padding: 40px 20px;
+    }
+    .community-inner {
+        padding: 50px 20px 80px;
+    }
+    .post-form-card {
+        grid-template-columns: 1fr;
+    }
+    .post-form-header {
+        padding: 20px;
+    }
+    .form-body {
+        padding: 20px;
+    }
+    .final-score {
+        justify-content: center;
+    }
 }
 
 .board-selector-overlay {

@@ -153,14 +153,15 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        // 다시 Firestore 'posts' 컬렉션에 저장합니다.
-        // 타임스탬프 호환성 문제 리포트(먹통)를 방지하기 위해 로컬 시간을 기록합니다.
-        await addDoc(collection(firestore, 'posts'), {
+        // 반드시 평가 가이드에 명시된 보안 규칙에 맞게 'robot_board'와 'created_at' 필드명을 사용합니다.
+        // 규칙 충돌(권한 오류)을 우회하기 위함입니다.
+        await addDoc(collection(firestore, 'robot_board'), {
             title: title || "무제",
             author: author || "익명",
+            category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
-            timestamp: Date.now() // serverTimestamp() 사용 시 오프라인/동기화 펜딩 무한대기 현상 방지
+            created_at: Date.now() // serverTimestamp 의존성 제거, 그러나 필드명은 created_at 유지
         });
 
         
@@ -187,7 +188,7 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        const q = query(collection(firestore, 'posts'), orderBy('timestamp', 'desc'));
+        const q = query(collection(firestore, 'robot_board'), orderBy('created_at', 'desc'));
         const querySnapshot = await getDocs(q);
         container.innerHTML = '';
         
@@ -202,7 +203,7 @@ async function loadPosts() {
         querySnapshot.forEach((docSnap) => {
             const post = docSnap.data();
             const postId = docSnap.id;
-            const date = post.timestamp ? new Date(post.timestamp).toLocaleDateString('ko-KR') : '—';
+            const date = post.created_at ? new Date(post.created_at).toLocaleDateString('ko-KR') : '—';
             
             const card = document.createElement('div');
             card.className = 'post-card';
@@ -258,7 +259,7 @@ async function loadPosts() {
             btn.addEventListener('click', async (e) => {
                 const id = e.target.dataset.id;
                 if(confirm("이 기록을 삭제하시겠습니까?")) {
-                    await deleteDoc(doc(firestore, "posts", id));
+                    await deleteDoc(doc(firestore, "robot_board", id));
                     loadPosts();
                 }
             });
@@ -275,7 +276,7 @@ async function loadPosts() {
                 const newContent = prompt("수정할 내용:", oldContent);
                 if(newContent === null) return;
                 
-                await updateDoc(doc(firestore, "posts", id), {
+                await updateDoc(doc(firestore, "robot_board", id), {
                     title: newTitle,
                     content: newContent
                 });
