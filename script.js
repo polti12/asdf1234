@@ -1,4 +1,4 @@
-// Canvas Explorer - Final Stability Version
+// Canvas Explorer - Ultra Stability Patch
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -13,34 +13,71 @@ const firebaseConfig = {
     appId: "1:53282534532:web:607ee422ca20eb5d053ed1"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const firestore = getFirestore(app);
+// Global variables
+let app, db, firestore;
+let currentBoardId = null;
+let streamUnsubscribe = null;
+let isDrawing = false;
+let myUserId, mySessionId;
 
-// [1] User & Stats
-const myUserId = sessionStorage.getItem('myUserId') || ('Guest_' + Math.floor(Math.random() * 10000));
-sessionStorage.setItem('myUserId', myUserId);
-const mySessionId = myUserId + '_' + Date.now();
+// Initialize when everything is ready
+function initApp() {
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+        firestore = getFirestore(app);
+        
+        myUserId = sessionStorage.getItem('myUserId') || ('Guest_' + Math.floor(Math.random() * 10000));
+        sessionStorage.setItem('myUserId', myUserId);
+        mySessionId = myUserId + '_' + Date.now();
+        
+        setupStats();
+        setupTimer();
+        setupLobby();
+        setupDrawing();
+        setupArchives();
+    } catch (e) {
+        console.error("Initialization failed", e);
+    }
+}
 
-onValue(ref(db, 'globalStats'), snap => {
-    const data = snap.val() || { totalBoards: 42, totalLines: 0, visitors: 0 };
-    document.getElementById('statBoards').innerText = (data.totalBoards || 42).toLocaleString();
-    document.getElementById('statLines').innerHTML = (data.totalLines || 0).toLocaleString() + "<span>M</span>";
-    document.getElementById('statVisitors').innerText = (data.visitors || 0).toLocaleString();
-});
+// [1] Stats
+function setupStats() {
+    onValue(ref(db, 'globalStats'), snap => {
+        const data = snap.val() || { totalBoards: 42, totalLines: 0, visitors: 0 };
+        const b = document.getElementById('statBoards'), l = document.getElementById('statLines'), v = document.getElementById('statVisitors');
+        if(b) b.innerText = (data.totalBoards || 42).toLocaleString();
+        if(l) l.innerHTML = (data.totalLines || 0).toLocaleString() + "<span>M</span>";
+        if(v) v.innerText = (data.visitors || 0).toLocaleString();
+    });
+}
 
-// [2] Timer Logic
+// [2] Timer
 let resetInterval = null;
-function startTimer(baseTime) {
-    if (resetInterval) clearInterval(resetInterval);
+function setupTimer() {
     const timerEl = document.getElementById('resetTimer');
-    if (!timerEl) return;
-    resetInterval = setInterval(() => {
-        const diff = (Number(baseTime) + 7200000) - Date.now();
-        if (diff <= 0) {
-            timerEl.innerText = "0:00:00";
-            return;
+    if(timerEl) timerEl.innerText = "LOADING...";
+
+    onValue(ref(db, 'timerBase'), snap => {
+        const base = snap.val();
+        const now = Date.now();
+        if (!base || (now - Number(base) > 7200000)) {
+            const newBase = now;
+            set(ref(db, 'timerBase'), newBase);
+            runCountdown(newBase);
+        } else {
+            runCountdown(Number(base));
         }
+    });
+}
+
+function runCountdown(base) {
+    if(resetInterval) clearInterval(resetInterval);
+    const timerEl = document.getElementById('resetTimer');
+    resetInterval = setInterval(() => {
+        if(!timerEl) return;
+        const diff = (base + 7200000) - Date.now();
+        if(diff <= 0) { timerEl.innerText = "RESETTING..."; return; }
         const h = Math.floor(diff / 3600000);
         const m = Math.floor((diff % 3600000) / 60000);
         const s = Math.floor((diff % 60000) / 1000);
@@ -48,186 +85,195 @@ function startTimer(baseTime) {
     }, 1000);
 }
 
-onValue(ref(db, 'timerBase'), snap => {
-    const base = snap.val();
-    if (!base || (Date.now() - Number(base) > 7200000)) {
-        const newBase = Date.now();
-        set(ref(db, 'timerBase'), newBase);
-        startTimer(newBase);
-    } else {
-        startTimer(base);
-    }
-});
-
-// [3] Lobby & Pagination
-let currentPage = 0;
+// [3] Lobby
 const boardsPerPage = 6;
-let maxPage = 0;
-const agWrapper = document.getElementById('agWrapper');
+let currentPage = 0, maxPage = 0;
 
-function renderBoardGrid(boardsObj) {
-    if (!agWrapper) return;
+function setupLobby() {
+    onValue(ref(db, 'whiteboards'), snap => {
+        const data = snap.val() || {};
+        const final = {};
+        for(let i=1; i<=42; i++) {
+            const k = `Gallery-${i}`;
+            final[k] = data[k] || { thumbnail: "" };
+        }
+        renderGrid(final);
+    });
+}
+
+function renderGrid(boardsObj) {
+    const agWrapper = document.getElementById('agWrapper');
+    if(!agWrapper) return;
     agWrapper.innerHTML = '';
-    const boards = Object.keys(boardsObj).map(k => ({id: k, ...boardsObj[k]}));
+    const boards = Object.keys(boardsObj).map(k => ({id:k, ...boardsObj[k]}));
     maxPage = Math.ceil(boards.length / boardsPerPage) - 1;
 
     for (let p = 0; p <= maxPage; p++) {
-        const pageEl = document.createElement('div');
-        pageEl.className = 'gallery-page';
+        const page = document.createElement('div');
+        page.className = 'gallery-page';
         boards.slice(p * boardsPerPage, (p + 1) * boardsPerPage).forEach(b => {
             const item = document.createElement('div');
             item.className = 'gallery-item';
             item.innerHTML = `<div class="img-box"><canvas id="thumb-${b.id}"></canvas></div><div class="board-badge"><span class="badge-id">${b.id}</span></div>`;
-            item.onclick = () => enterWhiteboard(b.id);
-            pageEl.appendChild(item);
+            item.onclick = () => enterBoard(b.id);
+            page.appendChild(item);
             
             setTimeout(() => {
-                const tCanvas = document.getElementById(`thumb-${b.id}`);
-                if (tCanvas) {
-                    const tCtx = tCanvas.getContext('2d');
-                    tCanvas.width = 300; tCanvas.height = 200;
-                    if (b.thumbnail) {
+                const tv = document.getElementById(`thumb-${b.id}`);
+                if(tv) {
+                    const tc = tv.getContext('2d');
+                    tv.width = 300; tv.height = 200;
+                    if(b.thumbnail) {
                         const img = new Image();
-                        img.onload = () => tCtx.drawImage(img, 0,0, 300, 200);
+                        img.onload = () => tc.drawImage(img, 0,0, 300, 200);
                         img.src = b.thumbnail;
+                    } else {
+                        tc.fillStyle = '#f8fafc'; tc.fillRect(0,0, 300, 200);
                     }
                 }
-            }, 50);
+            }, 60);
         });
-        agWrapper.appendChild(pageEl);
+        agWrapper.appendChild(page);
     }
     updateSlider();
 }
 
 function updateSlider() {
-    agWrapper.style.transform = `translateX(-${currentPage * 100}%)`;
-    document.getElementById('prevBtn').disabled = (currentPage === 0);
-    document.getElementById('nextBtn').disabled = (currentPage === maxPage);
+    const w = document.getElementById('agWrapper');
+    if(w) w.style.transform = `translateX(-${currentPage * 100}%)`;
+    const p = document.getElementById('prevBtn'), n = document.getElementById('nextBtn');
+    if(p) p.disabled = (currentPage === 0);
+    if(n) n.disabled = (currentPage === maxPage);
 }
 document.getElementById('prevBtn').onclick = () => { if(currentPage > 0) {currentPage--; updateSlider();} };
 document.getElementById('nextBtn').onclick = () => { if(currentPage < maxPage) {currentPage++; updateSlider();} };
 
-onValue(ref(db, 'whiteboards'), snap => {
-    const data = snap.val() || {};
-    const final = {};
-    for (let i=1; i<=42; i++) {
-        const k = `Gallery-${i}`;
-        final[k] = data[k] || { thumbnail: "" };
-    }
-    renderBoardGrid(final);
-});
+// [4] Drawing
+let ctx, canvas;
+function setupDrawing() {
+    canvas = document.getElementById('drawingCanvas');
+    if(!canvas) return;
+    ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
+    canvas.onmousedown = canvas.ontouchstart = (e) => { startDraw(e); };
+    canvas.onmousemove = canvas.ontouchmove = (e) => { doDraw(e); };
+    canvas.onmouseup = canvas.ontouchend = canvas.onmouseleave = () => { stopDraw(); };
+}
 
-// [4] Whiteboard & Drawing
-const whiteboardView = document.getElementById('whiteboardView');
-const canvas = document.getElementById('drawingCanvas');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
-let currentBoardId = null;
-let streamUnsubscribe = null;
-let isDrawing = false;
-let currentTool = 'pen';
-let currentColor = '#000000';
-let currentLineWidth = 5;
-
-function enterWhiteboard(id) {
+let buffer = [];
+function enterBoard(id) {
     currentBoardId = id;
-    document.getElementById('currentBoardName').innerText = id;
-    whiteboardView.classList.add('active');
-    resizeCanvas();
-    if (streamUnsubscribe) streamUnsubscribe();
+    const nameEl = document.getElementById('currentBoardName');
+    if(nameEl) nameEl.innerText = id;
+    const view = document.getElementById('whiteboardView');
+    if(view) {
+        view.classList.add('active');
+        const r = canvas.parentElement.getBoundingClientRect();
+        canvas.width = r.width; canvas.height = r.height;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0, canvas.width, canvas.height);
+    }
+    if(streamUnsubscribe) streamUnsubscribe();
     streamUnsubscribe = onChildAdded(ref(db, `streams/${id}`), snap => {
         const d = snap.val();
-        if (d.session === mySessionId) return;
-        if (d.action === 'clear') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0, canvas.width, canvas.height); return; }
-        ctx.beginPath();
-        ctx.lineWidth = d.width;
-        ctx.strokeStyle = d.tool === 'eraser' ? '#ffffff' : d.color;
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.moveTo(d.points[0].x, d.points[0].y);
-        d.points.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.stroke();
+        if(d.session === mySessionId) return;
+        if(d.action === 'clear') { ctx.fillRect(0,0, canvas.width, canvas.height); return; }
+        renderStroke(d);
     });
 }
 
-function resizeCanvas() {
-    const r = canvas.parentElement.getBoundingClientRect();
-    canvas.width = r.width; canvas.height = r.height;
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0, canvas.width, canvas.height);
+function renderStroke(d) {
+    if(!d.pts) return;
+    ctx.beginPath();
+    ctx.lineWidth = d.w; ctx.strokeStyle = (d.t === 'eraser' ? '#ffffff' : d.c);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.moveTo(d.pts[0].x, d.pts[0].y);
+    d.pts.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.stroke();
 }
 
-const getXY = (e) => {
+function startDraw(e) { 
+    isDrawing = true; 
     const r = canvas.getBoundingClientRect();
-    const cx = e.touches ? e.touches[0].clientX : e.clientX;
-    const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: Math.round(cx - r.left), y: Math.round(cy - r.top) };
-};
-
-let buffer = [];
-canvas.onmousedown = canvas.ontouchstart = (e) => { 
-    isDrawing = true; buffer = [getXY(e)]; 
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    buffer = [{x, y}];
     if(e.type === 'touchstart') e.preventDefault();
-};
-canvas.onmousemove = canvas.ontouchmove = (e) => {
-    if (!isDrawing) return;
-    const p = getXY(e);
-    ctx.lineWidth = currentLineWidth;
-    ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+}
+
+function doDraw(e) {
+    if(!isDrawing) return;
+    const r = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    const last = buffer[buffer.length-1];
+    ctx.beginPath();
+    ctx.lineWidth = 5; ctx.strokeStyle = '#000000';
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath(); ctx.moveTo(buffer[buffer.length-1].x, buffer[buffer.length-1].y);
-    ctx.lineTo(p.x, p.y); ctx.stroke();
-    buffer.push(p);
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    buffer.push({x, y});
     if(e.type === 'touchmove') e.preventDefault();
-};
-canvas.onmouseup = canvas.ontouchend = canvas.onmouseleave = () => {
-    if (!isDrawing) return;
+}
+
+function stopDraw() {
+    if(!isDrawing) return;
     isDrawing = false;
-    if (buffer.length > 1) {
+    if(buffer.length > 1) {
         push(ref(db, `streams/${currentBoardId}`), {
-            session: mySessionId, points: buffer, tool: currentTool, color: currentColor, width: currentLineWidth
+            session: mySessionId, pts: buffer, c: '#000000', w: 5, t: 'pen'
         });
-        update(ref(db, 'globalStats'), { totalLines: increment(buffer.length) });
     }
     buffer = [];
-};
+}
 
-document.getElementById('closeBoardBtn').onclick = async () => {
-    const thumb = canvas.toDataURL('image/jpeg', 0.5);
+document.getElementById('closeBoardBtn').onclick = () => {
+    const thumb = canvas.toDataURL('image/jpeg', 0.4); // Compressing more for speed
     update(ref(db, `whiteboards/${currentBoardId}`), { thumbnail: thumb });
-    whiteboardView.classList.remove('active');
+    document.getElementById('whiteboardView').classList.remove('active');
 };
-
-document.getElementById('toolPen').onclick = () => { currentTool = 'pen'; currentColor = '#000000'; };
-document.getElementById('toolEraser').onclick = () => { currentTool = 'eraser'; };
-document.getElementById('toolClear').onclick = () => { if(confirm('Clear?')) { ctx.fillRect(0,0, canvas.width, canvas.height); push(ref(db, `streams/${currentBoardId}`), {action:'clear'}); }};
 
 // [5] Archives
-async function loadPosts() {
+function setupArchives() {
     onValue(ref(db, 'posts'), snap => {
         const container = document.getElementById('postCardContainer');
-        if (!container) return;
+        if(!container) return;
         const data = snap.val() || {};
         const items = Object.keys(data).map(k => ({id:k, ...data[k]})).reverse();
-        document.getElementById('count').innerText = items.length;
+        const ce = document.getElementById('count');
+        if(ce) ce.innerText = items.length;
         container.innerHTML = items.map(p => `
             <div class="post-card">
-                <div class="post-header"><span class="post-tag">${p.boardId}</span></div>
+                <div class="post-header-simple"><span class="post-tag-badge">${p.boardId}</span></div>
                 <div class="post-title-text">${p.title}</div>
                 <p class="post-desc">${p.content}</p>
-                <div class="post-footer">BY ${p.author}</div>
+                <div class="post-footer-simple">BY ${p.author}</div>
             </div>
         `).join('');
     });
-}
-loadPosts();
 
-document.getElementById('toggleWrite').onclick = () => { alert('먼저 보드를 선택한 후 닫기 버튼을 눌러 스냅샷을 만드세요. 아카이브 시스템은 곧 업데이트됩니다.'); };
-document.getElementById('savePost').onclick = async () => {
-    const t = document.getElementById('postTitle').value;
-    const c = document.getElementById('postContent').value;
-    if (t && c) {
-        await push(ref(db, 'posts'), {
-            title: t, content: c, author: document.getElementById('postAuthor').value || "익명",
-            created_at: Date.now(), boardId: currentBoardId || "Unknown"
-        });
-        document.getElementById('postFormOverlay').classList.remove('active');
-    }
-};
+    const sw = document.getElementById('savePost');
+    if(sw) sw.onclick = async () => {
+        const t = document.getElementById('postTitle').value;
+        const c = document.getElementById('postContent').value;
+        if(t && c) {
+            await push(ref(db, 'posts'), {
+                title: t, content: c, author: document.getElementById('postAuthor').value || "익명",
+                created_at: Date.now(), boardId: currentBoardId || "Unknown"
+            });
+            document.getElementById('postFormOverlay').classList.remove('active');
+        }
+    };
+    
+    const tw = document.getElementById('toggleWrite');
+    if(tw) tw.onclick = () => {
+        alert("먼저 보드에 접속한 뒤 닫기 버튼을 눌러 스냅샷을 생성하세요. 그 후 '기록 남기기' 기능이 활성화됩니다.");
+    };
+}
+
+// Start
+if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
