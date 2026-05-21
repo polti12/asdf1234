@@ -87,10 +87,10 @@ body {
 
 #resetTimer {
     font-family: var(--font-mono);
-    font-size: 0.5em; /* relative to logo size */
+    font-size: 0.65em; /* relative to logo size - enlarged */
     color: var(--text-muted);
     background: var(--bg-hover);
-    padding: 0px 10px;
+    padding: 2px 12px;
     border-radius: 2px;
     font-weight: 400;
 }
@@ -103,7 +103,7 @@ body {
 .lobby-hint {
     font-family: var(--font-mono);
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: 0.95rem; /* Enlarged */
     text-transform: uppercase;
     letter-spacing: 0.12em;
 }
@@ -382,25 +382,25 @@ body {
 .post-info { padding: 24px; }
 .post-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .post-tag {
-    font-family: var(--font-mono); font-size: 0.6rem;
+    font-family: var(--font-mono); font-size: 0.75rem; /* Enlarged */
     font-weight: 700; color: var(--text-primary);
     text-transform: uppercase; background: var(--accent);
     padding: 3px 8px;
 }
-.post-date { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
+.post-date { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); }
 .post-title-text {
     font-size: 1.2rem; font-weight: 900; line-height: 1.2;
     margin-bottom: 12px; text-transform: uppercase;
 }
 .post-desc {
-    font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;
+    font-size: 1rem; color: var(--text-muted); line-height: 1.6; /* Enlarged */
     display: -webkit-box; -webkit-line-clamp: 3;
     line-clamp: 3;
     -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 20px;
 }
 .post-footer {
     border-top: 1px solid var(--border-color); padding-top: 16px;
-    font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700;
+    font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; /* Enlarged */
     text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--text-muted);
 }
@@ -409,7 +409,7 @@ body {
     text-align: center;
     padding: 100px 0;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.9rem; /* Enlarged */
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -458,7 +458,7 @@ body {
 }
 .stats-country {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: 0.85rem; /* Enlarged */
     color: var(--text-muted);
 }
 
@@ -526,13 +526,13 @@ body {
     letter-spacing: 0.05em;
 }
 .stat-val span {
-    font-size: 1rem;
+    font-size: 1.2rem; /* Enlarged */
     color: var(--text-muted);
 }
 
 .stat-label {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: 0.85rem; /* Enlarged */
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.2em;
@@ -594,7 +594,7 @@ body {
 }
 .comment-item .author {
     font-weight: 900;
-    font-size: 0.7rem;
+    font-size: 0.85rem; /* Enlarged */
     display: block;
     margin-bottom: 2px;
     color: var(--text-muted);

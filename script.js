@@ -501,14 +501,15 @@ function startTimer(baseTime) {
     if (resetInterval) clearInterval(resetInterval);
     const TWO_HOURS = 2 * 60 * 60 * 1000;
     const timerEl = document.getElementById('resetTimer');
+    const hintTimerEl = document.getElementById('resetHintTime');
     
     resetInterval = setInterval(() => {
-        if (!timerEl) return;
         const now = Date.now();
         const diff = (baseTime + TWO_HOURS) - now;
         
         if (diff <= 0) {
-            timerEl.innerText = "0:00:00";
+            if (timerEl) timerEl.innerText = "0:00:00";
+            if (hintTimerEl) hintTimerEl.innerText = "0시간 0분";
             return;
         }
         
@@ -516,7 +517,8 @@ function startTimer(baseTime) {
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const s = Math.floor((diff % (1000 * 60)) / 1000);
         
-        timerEl.innerText = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        if (timerEl) timerEl.innerText = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        if (hintTimerEl) hintTimerEl.innerText = `${h}시간 ${m}분`;
     }, 1000);
 }
 
