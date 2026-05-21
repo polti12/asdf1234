@@ -64,74 +64,113 @@
                 <input type="text" id="postAuthor" placeholder="이름을 입력하세요">
             </div>
             <div class="form-group">
+                <label>첨부할 캔버스 선택</label>
+                <select id="boardSelect" style="width: 100%; height: 55px; border-radius: 14px; padding: 0 18px; background: var(--bg-hover); border: 1px solid transparent; color: var(--text-primary); font-family: inherit; font-size: 1rem; outline: none; cursor: pointer;">
+                    <option value="">캔버스 선택 안 함</option>
+                    <!-- script에서 동적 생성 -->
+                </select>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">선택한 캔버스의 현재 모습이 스냅샷으로 저장됩니다.</p>
+            </div>
+            <div class="form-group">
                 <label>내용</label>
-                <textarea id="postContent" rows="8" placeholder="상세 내용을 입력하세요"></textarea>
+                <textarea id="postContent" rows="6" placeholder="상세 내용을 입력하세요"></textarea>
             </div>
             <div style="text-align: right;">
-                <button class="primary-btn" id="savePost" style="padding:12px 40px; font-size:1rem; cursor:pointer;">등록하기</button>
+                <button class="primary-btn" id="savePost" style="padding:12px 40px; font-size:1rem; cursor:pointer; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-weight: 700; transition: 0.3s; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);">등록하기</button>
             </div>
         </div>
 
-        <table class="board-list">
-            <thead>
-                <tr>
-                    <th width="80">No</th>
-                    <th>제목</th>
-                    <th width="150">작성자</th>
-                    <th width="150">날짜</th>
-                </tr>
-            </thead>
-            <tbody id="postList">
-                <tr><td colspan="4" style="text-align:center; padding:50px; color:#555;">데이터를 불러오는 중...</td></tr>
-            </tbody>
+        <div id="postCardContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 30px; margin-top: 40px;">
+            <!-- posts will be rendered here as cards -->
+        </div>
+
+        <!-- 기존 테이블은 숨김 혹은 제거 -->
+        <table class="board-list" style="display:none;">
+            <tbody id="postList"></tbody>
         </table>
     </main>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
-        // 사용자 제공 Firebase 설정
+        // Unified Firebase Config (Main Project)
         const firebaseConfig = {
-          apiKey: "AIzaSyAYj2PRzszEqrFW06wXVa-N1A42qOKz9k8",
-          authDomain: "board-asdf.firebaseapp.com",
-          projectId: "board-asdf",
-          storageBucket: "board-asdf.firebasestorage.app",
-          messagingSenderId: "562523444989",
-          appId: "1:562523444989:web:b045904656c52e2b545094",
-          measurementId: "G-8YZHHBJSB0"
+            apiKey: "AIzaSyCJAZ-QdPnygAxTt_RKH45Q7k-djU3KP4k",
+            authDomain: "my-whiteboard-46af9.firebaseapp.com",
+            databaseURL: "https://my-whiteboard-46af9-default-rtdb.firebaseio.com",
+            projectId: "my-whiteboard-46af9",
+            storageBucket: "my-whiteboard-46af9.firebasestorage.app",
+            messagingSenderId: "53282534532",
+            appId: "1:53282534532:web:607ee422ca20eb5d053ed1",
+            measurementId: "G-DYQWMPDXZM"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const rtdb = getDatabase(app);
         const postsCol = collection(db, 'posts');
 
-        // 리스트 실시간 업데이트
-        const postList = document.getElementById('postList');
+        // RTDB에서 보드 목록 가져와서 셀렉트 박스 채우기
+        const boardSelect = document.getElementById('boardSelect');
+        onValue(ref(rtdb, 'whiteboards'), (snapshot) => {
+            const data = snapshot.val() || {};
+            boardSelect.innerHTML = '<option value="">캔버스 선택 안 함</option>';
+            Object.keys(data).forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = key;
+                boardSelect.appendChild(opt);
+            });
+        });
+
+        // 리스트 실시간 업데이트 (카드 형태)
+        const postCardContainer = document.getElementById('postCardContainer');
         const countSpan = document.getElementById('count');
         const q = query(postsCol, orderBy('createdAt', 'desc'));
 
         onSnapshot(q, (snapshot) => {
-            postList.innerHTML = '';
+            postCardContainer.innerHTML = '';
             countSpan.textContent = snapshot.size;
             if (snapshot.empty) {
-                postList.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:50px; color:#555;">아직 등록된 게시글이 없습니다.</td></tr>';
+                postCardContainer.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:100px; color:var(--text-muted); font-weight:600;">아직 등록된 혁신 기록이 없습니다.</div>';
                 return;
             }
-            let idx = snapshot.size;
             snapshot.forEach((doc) => {
                 const post = doc.data();
-                const tr = document.createElement('tr');
                 const date = post.createdAt ? new Date(post.createdAt.seconds * 1000).toLocaleDateString() : '방금 전';
-                tr.innerHTML = `
-                    <td>${idx--}</td>
-                    <td><span class="post-title">${post.title}</span></td>
-                    <td class="post-meta">${post.author}</td>
-                    <td class="post-meta">${date}</td>
+                
+                const card = document.createElement('div');
+                card.style.cssText = `
+                    background: var(--bg-white); border-radius: 24px; overflow: hidden; 
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid var(--border-color);
+                    transition: all 0.3s ease; cursor: pointer; display: flex; flex-direction: column;
                 `;
-                // 클릭 시 상세 내용 (나중에 구현 가능)
-                tr.onclick = () => alert(post.content);
-                postList.appendChild(tr);
+                card.onmouseenter = () => { card.style.transform = 'translateY(-10px)'; card.style.boxShadow = '0 15px 40px rgba(0,0,0,0.08)'; };
+                card.onmouseleave = () => { card.style.transform = 'none'; card.style.boxShadow = '0 4px 20px rgba(0,0,0,0.03)'; };
+
+                let imgHtml = '';
+                if(post.attachedImage) {
+                    imgHtml = `<div style="width:100%; aspect-ratio:16/9; background:#eee; overflow:hidden;">
+                        <img src="${post.attachedImage}" style="width:100%; height:100%; object-fit:cover;">
+                    </div>`;
+                }
+
+                card.innerHTML = `
+                    ${imgHtml}
+                    <div style="padding: 24px;">
+                        <div style="color: var(--accent); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">${post.attachedBoard || 'General'}</div>
+                        <h3 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 12px; color: var(--text-primary);">${post.title}</h3>
+                        <p style="color: var(--text-muted); font-size: 0.95rem; line-height:1.6; margin-bottom: 20px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${post.content}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                            <span style="font-weight: 700; font-size: 0.9rem;">${post.author}</span>
+                            <span style="color: var(--text-muted); font-size: 0.8rem;">${date}</span>
+                        </div>
+                    </div>
+                `;
+                card.onclick = () => alert(post.content);
+                postCardContainer.appendChild(card);
             });
         });
 
@@ -141,25 +180,37 @@
             const title = document.getElementById('postTitle').value;
             const author = document.getElementById('postAuthor').value;
             const content = document.getElementById('postContent').value;
-
+            const selectedBoardId = boardSelect.value;
+            
             if(!title || !author || !content) return alert('모든 칸을 채워주세용!');
 
             saveBtn.disabled = true;
             saveBtn.textContent = '등록 중...';
 
+            let attachedImage = "";
+            if(selectedBoardId) {
+                const boardSnap = await get(ref(rtdb, `whiteboards/${selectedBoardId}`));
+                if(boardSnap.exists()) {
+                    attachedImage = boardSnap.val().thumbnail;
+                }
+            }
+
             try {
                 await addDoc(postsCol, {
                     title, author, content,
+                    attachedBoard: selectedBoardId,
+                    attachedImage: attachedImage,
                     createdAt: serverTimestamp()
                 });
                 document.getElementById('writeForm').classList.remove('active');
                 document.getElementById('postTitle').value = '';
                 document.getElementById('postAuthor').value = '';
                 document.getElementById('postContent').value = '';
-                alert('글이 등록되었어용!');
+                boardSelect.value = '';
+                alert('혁신 기록이 등록되었습니다!');
             } catch (e) {
                 console.error("Error: ", e);
-                alert('에러가 났어용.. Firestore 규칙을 확인해보세용!');
+                alert('등록에 실패했습니다. Firebase 권한을 확인해주세요.');
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.textContent = '등록하기';
