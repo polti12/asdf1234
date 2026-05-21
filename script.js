@@ -153,19 +153,16 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        // 8초 후 타임아웃 처리 (네트워크 불안정 대비)
-        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
-        
-        const savePromise = addDoc(collection(firestore, 'robot_board'), {
+        // Realtime Database로 게시물 저장
+        const postsRef = ref(db, 'posts');
+        await push(postsRef, {
             title: title || "무제",
             author: author || "익명",
             category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
-            created_at: serverTimestamp() // 반드시 가이드대로 서버 타임스탬프 사용
+            created_at: Date.now() // RTDB는 숫자 타임스탬프를 원활하게 처리함
         });
-
-        await Promise.race([savePromise, timeout]);
         
         alert("기록이 성공적으로 저장되었습니다!");
         document.getElementById('postFormOverlay').classList.remove('active');
@@ -173,21 +170,17 @@ async function savePost() {
         document.getElementById('postAuthor').value = '';
         document.getElementById('postContent').value = '';
         
-        setTimeout(loadPosts, 500); // DB 반영 시간을 고려한 약간의 딜레이 후 로드
+        // RTDB의 onValue가 실시간으로 UI를 갱신하므로 loadPosts를 명시적으로 호출할 필요가 줄어들지만, 
+        // 기존 코드 흐름을 유지하기 위해 남겨둡니다.
     } catch (e) {
-        console.error("Save Error:", e);
-        if (e.message === "Timeout") {
-            alert("서버 응답이 너무 늦습니다. 인터넷 연결이나 파이어베이스 설정을 확인해 주세요.");
-        } else if (e.code === 'permission-denied') {
-            alert("저장 권한이 없습니다. Firebase 콘솔의 Firestore 규칙이 'robot_board' 컬렉션에 대해 허용되어 있는지 확인해 주세요.");
-        } else {
-            alert("저장 중 오류 발생: " + e.message);
-        }
+        console.error("RTDB Save Error:", e);
+        alert("저장 중 오류 발생: " + e.message);
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
     }
 }
+
 
 
 
@@ -197,31 +190,28 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        const q = query(collection(firestore, 'robot_board'), orderBy('created_at', 'desc'));
-        const querySnapshot = await getDocs(q);
-        container.innerHTML = '';
-        
-        const countEl = document.getElementById('count');
-        if (countEl) countEl.innerText = querySnapshot.size;
-
-        if (querySnapshot.empty) {
-            container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
-            return;
-        }
-
-        querySnapshot.forEach((docSnap) => {
-            const post = docSnap.data();
-            const postId = docSnap.id;
+        // Realtime Database에서 게시물 실시간 로드
+        onValue(ref(db, 'posts'), (snapshot) => {
+            const data = snapshot.val();
+            container.innerHTML = '';
             
-            // Timestamp 객체인지 일반 숫자인지 판별하여 날짜 변환
-            let date = '—';
-            if (post.created_at) {
-                if (typeof post.created_at.toDate === 'function') {
-                    date = post.created_at.toDate().toLocaleDateString('ko-KR');
-                } else if (typeof post.created_at === 'number') {
-                    date = new Date(post.created_at).toLocaleDateString('ko-KR');
-                }
+            if (!data) {
+                const countEl = document.getElementById('count');
+                if (countEl) countEl.innerText = '0';
+                container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
+                return;
             }
+
+            // 객체를 배열로 변환하고 최신순 정렬 (ID 보존)
+            const postsArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+            postsArray.sort((a, b) => b.created_at - a.created_at);
+            
+            const countEl = document.getElementById('count');
+            if (countEl) countEl.innerText = postsArray.length;
+
+            postsArray.forEach((post) => {
+                const postId = post.id;
+                const date = post.created_at ? new Date(post.created_at).toLocaleDateString('ko-KR') : '—';
             
             const card = document.createElement('div');
             card.className = 'post-card';
@@ -251,7 +241,7 @@ async function loadPosts() {
             `;
             container.appendChild(card);
             
-            // Asynchronously fetch the image from Realtime Database instead of Firestore
+            // Asynchronously fetch the image from Realtime Database
             if (post.boardId && post.boardId !== "Unknown") {
                 get(ref(db, `whiteboards/${post.boardId}/thumbnail`)).then(snap => {
                     const dataUrl = snap.val();
@@ -272,17 +262,20 @@ async function loadPosts() {
             }
         });
 
-        // Add Edit & Delete Listeners
-        document.querySelectorAll('.del-btn').forEach(btn => {
+        // 수정 & 삭제 리스너 (RTDB 버전)
+        // onValue 내부에 두면 갱신될 때마다 중복될 수 있어 이벤트 위임을 사용하는 것이 좋으나 
+        // 여기서는 버튼 생성 시점에 이벤트를 바로 걸어줍니다.
+        const delBtns = container.querySelectorAll('.del-btn');
+        delBtns.forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const id = e.target.dataset.id;
                 if(confirm("이 기록을 삭제하시겠습니까?")) {
-                    await deleteDoc(doc(firestore, "robot_board", id));
-                    loadPosts();
+                    await remove(ref(db, `posts/${id}`));
                 }
             });
         });
-        document.querySelectorAll('.edit-btn').forEach(btn => {
+        const editBtns = container.querySelectorAll('.edit-btn');
+        editBtns.forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const id = e.target.dataset.id;
                 const oldTitle = e.target.dataset.title;
@@ -294,19 +287,19 @@ async function loadPosts() {
                 const newContent = prompt("수정할 내용:", oldContent);
                 if(newContent === null) return;
                 
-                await updateDoc(doc(firestore, "robot_board", id), {
+                await update(ref(db, `posts/${id}`), {
                     title: newTitle,
                     content: newContent
                 });
-                loadPosts();
             });
         });
-
+        }); // onValue 끝
     } catch (e) {
         console.error('Error loading posts:', e);
         container.innerHTML = '<div class="no-posts">Error loading archives.</div>';
     }
 }
+
 
 // --- Event Listeners ---
 document.getElementById('toggleWrite')?.addEventListener('click', openBoardSelector);
