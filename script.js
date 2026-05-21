@@ -140,22 +140,18 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        // Promise.race to prevent infinite hanging
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
-        
-        await Promise.race([
-            addDoc(collection(firestore, 'robot_board'), {
-                title: title || "무제",
-                author: author || "익명",
-                category: "Robot SW Lab",
-                content: content || "",
-                boardId: selectedSnapshotBoardId || "Unknown",
-                // Do NOT send the massive base64 string 'attachedImage' here to prevent the 1MB Firestore limit crash
-                // We'll rely entirely on RTDB for the image via boardId
-                created_at: serverTimestamp()
-            }),
-            timeoutPromise
-        ]);
+        // Firestore 대신 RTDB를 사용하여 게시글 저장
+        // (Firestore가 프로젝트에 활성화되지 않아 무한 대기 현상이 생길 수 있습니다)
+        const postsRef = ref(db, 'posts');
+        await push(postsRef, {
+            title: title || "무제",
+            author: author || "익명",
+            category: "Robot SW Lab",
+            content: content || "",
+            boardId: selectedSnapshotBoardId || "Unknown",
+            timestamp: Date.now() // RTDB 방식 타임스탬프
+        });
+
         
         alert("기록이 성공적으로 저장되었습니다!");
         document.getElementById('postFormOverlay').classList.remove('active');
@@ -180,20 +176,27 @@ async function loadPosts() {
     container.innerHTML = '<div class="no-posts">LOADING ARCHIVES...</div>';
 
     try {
-        const q = query(collection(firestore, 'robot_board'), orderBy('created_at', 'desc'));
-        const querySnapshot = await getDocs(q);
-        container.innerHTML = '';
-        const countEl = document.getElementById('count');
-        if (countEl) countEl.innerText = querySnapshot.size;
+        // RTDB에서 게시글 로드
+        onValue(ref(db, 'posts'), (snapshot) => {
+            const data = snapshot.val();
+            container.innerHTML = '';
+            
+            if (!data) {
+                const countEl = document.getElementById('count');
+                if (countEl) countEl.innerText = '0';
+                container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
+                return;
+            }
 
-        if (querySnapshot.empty) {
-            container.innerHTML = '<div class="no-posts">첫 기록을 남겨보세요</div>';
-            return;
-        }
+            // 객체를 배열로 변환하고 최신순 정렬
+            const postsArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+            postsArray.sort((a, b) => b.timestamp - a.timestamp);
+            
+            const countEl = document.getElementById('count');
+            if (countEl) countEl.innerText = postsArray.length;
 
-        querySnapshot.forEach((doc) => {
-            const post = doc.data();
-            const date = post.created_at ? post.created_at.toDate().toLocaleDateString('ko-KR') : '—';
+            postsArray.forEach((post) => {
+                const date = post.timestamp ? new Date(post.timestamp).toLocaleDateString('ko-KR') : '—';
             const card = document.createElement('div');
             card.className = 'post-card';
             
@@ -235,7 +238,8 @@ async function loadPosts() {
             } else {
                 document.getElementById(imgId).innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
             }
-        });
+        }); // end forEach
+        }); // end onValue
     } catch (e) {
         console.error('Error loading posts:', e);
         container.innerHTML = '<div class="no-posts">Error loading archives.</div>';
