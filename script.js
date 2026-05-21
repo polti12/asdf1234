@@ -1,8 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
 // Firestore는 로비 메뉴(방 존재 확인, 권한) 등으로 쓰고, 드로잉 데이터는 RTDB로 나누어 쓰거나, 순수 RTDB로 씁니다.
 // 구조 단순화를 위해 전체 시스템을 RTDB로 전환합니다.
-import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
-import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+import { getDatabase, ref, set, update, push, onValue, onChildAdded, remove, get, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
 // Firebase App Init
 const firebaseConfig = {
@@ -19,11 +19,24 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const firestore = getFirestore(app);
 
-// Local User Session
+// Local User Session & Global Stats Increment
 if (!sessionStorage.getItem('myUserId')) {
     sessionStorage.setItem('myUserId', 'Guest_' + Math.floor(Math.random() * 10000));
+    // New visitor detected
+    update(ref(db, 'globalStats'), { visitors: increment(1) }).catch(e => console.log('Stat increment err', e));
 }
 const myUserId = sessionStorage.getItem('myUserId');
+
+// Global Stats Sync
+onValue(ref(db, 'globalStats'), snap => {
+    const data = snap.val() || { totalBoards: 42, totalLines: 0, visitors: 0 };
+    const statB = document.getElementById('statBoards');
+    const statL = document.getElementById('statLines');
+    const statV = document.getElementById('statVisitors');
+    if(statB) statB.innerText = parseInt(data.totalBoards || 42).toLocaleString();
+    if(statL) statL.innerHTML = parseInt(data.totalLines || 0).toLocaleString() + "<span>M</span>";
+    if(statV) statV.innerText = parseInt(data.visitors || 0).toLocaleString();
+});
 
 // DOM Elements
 const lobbyView = document.getElementById('lobbyView');
@@ -55,8 +68,8 @@ async function openBoardSelector() {
         
         grid.innerHTML = '';
         
-        // Populate all 40 boards
-        for (let i = 1; i <= 40; i++) {
+        // Populate all 42 boards
+        for (let i = 1; i <= 42; i++) {
             const boardKey = `Gallery-${i}`;
             const board = boardsData[boardKey] || {};
             
@@ -186,8 +199,9 @@ async function loadPosts() {
             return;
         }
 
-        querySnapshot.forEach((doc) => {
-            const post = doc.data();
+        querySnapshot.forEach((docSnap) => {
+            const post = docSnap.data();
+            const postId = docSnap.id;
             const date = post.timestamp ? new Date(post.timestamp).toLocaleDateString('ko-KR') : '—';
             
             const card = document.createElement('div');
@@ -207,7 +221,13 @@ async function loadPosts() {
                     </div>
                     <div class="post-title-text">${post.title}</div>
                     <div class="post-desc">${post.content}</div>
-                    <div class="post-footer">BY ${post.author}</div>
+                    <div class="post-footer">
+                        BY ${post.author}
+                        <div class="post-actions">
+                            <button class="post-action-btn edit-btn" data-id="${postId}" data-title="${post.title}" data-content="${post.content}">수정</button>
+                            <button class="post-action-btn del-btn" data-id="${postId}">삭제</button>
+                        </div>
+                    </div>
                 </div>
             `;
             container.appendChild(card);
@@ -231,6 +251,36 @@ async function loadPosts() {
             } else {
                 document.getElementById(imgId).innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
             }
+        });
+
+        // Add Edit & Delete Listeners
+        document.querySelectorAll('.del-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.id;
+                if(confirm("이 기록을 삭제하시겠습니까?")) {
+                    await deleteDoc(doc(firestore, "posts", id));
+                    loadPosts();
+                }
+            });
+        });
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.id;
+                const oldTitle = e.target.dataset.title;
+                const oldContent = e.target.dataset.content;
+                
+                const newTitle = prompt("수정할 제목:", oldTitle);
+                if(newTitle === null) return;
+                
+                const newContent = prompt("수정할 내용:", oldContent);
+                if(newContent === null) return;
+                
+                await updateDoc(doc(firestore, "posts", id), {
+                    title: newTitle,
+                    content: newContent
+                });
+                loadPosts();
+            });
         });
 
     } catch (e) {
@@ -345,7 +395,7 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 
 // 3D Camera Logic Removed
 
-// RTDB 로비 감지 (하드코딩 40개 유지 및 2시간 리셋)
+// RTDB 로비 감지 (하드코딩 42개 유지 및 2시간 리셋)
 onValue(ref(db, 'whiteboards'), (snapshot) => {
     const data = snapshot.val() || {};
     let updates = {};
@@ -353,8 +403,8 @@ onValue(ref(db, 'whiteboards'), (snapshot) => {
     const now = Date.now();
     let didReset = false;
     
-    // 항상 Gallery-1부터 Gallery-40까지 무조건 채워넣기 보장
-    for(let i=1; i<=40; i++) {
+    // 항상 Gallery-1부터 Gallery-42까지 무조건 채워넣기 보장
+    for(let i=1; i<=42; i++) {
         const key = `Gallery-${i}`;
         if (!data[key]) {
             updates[key] = { createdAt: now, thumbnail: "" };
@@ -368,16 +418,47 @@ onValue(ref(db, 'whiteboards'), (snapshot) => {
     
     if(didReset) {
         update(ref(db, 'whiteboards'), updates);
+        // 트로피 보드 갯수 증가
+        update(ref(db, 'globalStats'), { totalBoards: increment(42) }).catch(()=>{});
         return; // 업데이트 시 onValue가 새로 트리거되므로 렌더링 스킵
     }
 
-    // 예전에 만들어둔 잡다한 보드 찌꺼기 무시하고 딱 40개만 렌더링
+    // 예전에 만들어둔 잡다한 보드 찌꺼기 무시하고 딱 42개만 렌더링
     const finalData = {};
-    for(let i=1; i<=40; i++) {
+    for(let i=1; i<=42; i++) {
         finalData[`Gallery-${i}`] = data[`Gallery-${i}`];
     }
     renderBoardGrid(finalData); // 방 목록 및 썸네일 새로고침
+    
+    // 타이머 UI 동기화 (Gallery-1 기준)
+    if (finalData['Gallery-1'] && finalData['Gallery-1'].createdAt) {
+        startTimer(finalData['Gallery-1'].createdAt);
+    }
 });
+
+let resetInterval = null;
+function startTimer(baseTime) {
+    if (resetInterval) clearInterval(resetInterval);
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const timerEl = document.getElementById('resetTimer');
+    
+    resetInterval = setInterval(() => {
+        if (!timerEl) return;
+        const now = Date.now();
+        const diff = (baseTime + TWO_HOURS) - now;
+        
+        if (diff <= 0) {
+            timerEl.innerText = "0:00:00";
+            return;
+        }
+        
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        timerEl.innerText = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }, 1000);
+}
 
 
 // --- Click & Permission Logic (자유 입장 전환) ---
@@ -518,6 +599,9 @@ function startDraw(e) {
                 canvasW: canvas.width, canvasH: canvas.height,
                 points: throttleBuffer
             });
+            // 늘어난 선 길이 트로피 업데이트 추적 (대략적)
+            update(ref(db, 'globalStats'), { totalLines: increment(throttleBuffer.length * 2) }).catch(()=>{});
+
             // 점이 뚝뚝 끊기는 현상을 방지하기 위해 버퍼의 [마지막 점]을 다음 버퍼의 [시작점]으로 이관함!
             throttleBuffer = [throttleBuffer[throttleBuffer.length - 1]]; 
         }

@@ -79,6 +79,23 @@ body {
     margin-bottom: 20px;
     text-transform: uppercase;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.timer-badge {
+    font-family: var(--font-mono);
+    font-size: clamp(1rem, 2vw, 1.8rem);
+    font-weight: 700;
+    background: var(--text-primary);
+    color: #ffffff;
+    padding: 6px 16px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
 }
 
 .logo-accent {
@@ -402,9 +419,161 @@ body {
 }
 
 /* ===================================
-   BOARD SELECTOR OVERLAY
-   (slides in over the grid)
+   CSSDA STYLE FOOTER & STATS
 =================================== */
+.stats-section {
+    background: var(--bg-main);
+    padding-top: 100px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Base Top Banner */
+.stats-hero-banner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 80px 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cssda-badge-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.cssda-badge {
+    width: 140px;
+    height: 140px;
+    animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+    100% { transform: rotate(360deg); }
+}
+
+.stats-project-info h3 {
+    font-size: 1.5rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+.stats-country {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.stats-intro-text {
+    max-width: 350px;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    text-align: right;
+}
+
+/* Bottom Panel (Beige) */
+.stats-bottom-panel {
+    background: #e8e6df; /* slightly darker beige */
+    padding: 60px 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.judges-faces {
+    display: flex;
+    margin-bottom: 50px;
+    filter: grayscale(100%) contrast(1.2);
+}
+.judges-faces img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border: 1px solid var(--text-primary);
+    margin-left: -1px; /* collapse borders */
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+    max-width: 1200px;
+    text-align: center;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+}
+
+.stat-val {
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+}
+.stat-val span {
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.stat-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+}
+
+/* Score Column */
+.final-score {
+    justify-content: flex-end; /* push down */
+}
+.final-score .stat-val {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+}
+.final-score .stat-label {
+    margin-bottom: 5px; /* baseline roughly matches others */
+}
+
+/* Post Actions (Delete/Edit/Comment) */
+.post-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+.post-action-btn {
+    background: none;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.2s;
+}
+.post-action-btn:hover {
+    color: var(--text-primary);
+}
+
 .board-selector-overlay {
     position: fixed;
     inset: 0;

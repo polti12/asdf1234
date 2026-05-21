@@ -18,7 +18,10 @@
 
         <!-- Hero Header -->
         <header class="lobby-header">
-            <div class="logo"><span class="logo-accent">CANVAS</span> EXPLORER</div>
+            <div class="logo">
+                <span class="logo-accent">CANVAS</span> EXPLORER
+                <span id="resetTimer" class="timer-badge">2:00:00</span>
+            </div>
             <p class="lobby-hint">아무 보드나 들어가서 자유롭게 그려보세요 — 2시간마다 초기화</p>
         </header>
 
@@ -51,7 +54,61 @@
                 </div>
             </div>
         </section>
+
+        <!-- ========== CSSDA STYLE STATS FOOTER ========== -->
+        <section class="stats-section">
+            <div class="stats-hero-banner">
+                <div class="cssda-badge-wrapper">
+                    <div class="cssda-badge">
+                        <svg viewBox="0 0 100 100">
+                            <!-- Circular Text Path -->
+                            <path id="circlePath" d="M 50, 50 m -40, 0 a 40,40 0 1,1 80,0 a 40,40 0 1,1 -80,0" fill="none"></path>
+                            <text font-family="var(--font-main)" font-size="10.5" font-weight="900" letter-spacing="2">
+                                <textPath href="#circlePath" startOffset="0%">WEBSITE OF THE DAY • AWARDED •</textPath>
+                            </text>
+                            <text x="50" y="55" text-anchor="middle" font-family="var(--font-mono)" font-size="14" font-weight="700">W</text>
+                        </svg>
+                    </div>
+                    <div class="stats-project-info">
+                        <h3>Canvas Explorer</h3>
+                        <p class="stats-country">KOREA - REALTIME COLLABORATION</p>
+                    </div>
+                </div>
+                <div class="stats-intro-text">
+                    Canvas Explorer randomly generates 42 interactive whiteboards. Every stroke, participant, and created board is preserved in our global real-time infrastructure.
+                </div>
+            </div>
+
+            <div class="stats-bottom-panel">
+                <div class="judges-faces">
+                    <img src="https://i.pravatar.cc/100?img=68" alt="Judge"><img src="https://i.pravatar.cc/100?img=12" alt="Judge"><img src="https://i.pravatar.cc/100?img=33" alt="Judge"><img src="https://i.pravatar.cc/100?img=44" alt="Judge"><img src="https://i.pravatar.cc/100?img=59" alt="Judge">
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
+                        <div class="stat-val" id="statBoards">0</div>
+                        <div class="stat-label">TOTAL BOARDS</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
+                        <div class="stat-val" id="statLines">0<span>M</span></div>
+                        <div class="stat-label">DRAWN LENGTH</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
+                        <div class="stat-val" id="statVisitors">0</div>
+                        <div class="stat-label">VISITORS</div>
+                    </div>
+                    <div class="stat-item final-score">
+                        <div class="stat-val" id="statScore">9.85</div>
+                        <div class="stat-label">COMMUNITY SCORE</div>
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
+
 
     <!-- ========== BOARD SELECTOR OVERLAY ========== -->
     <!-- This slides over the lobby grid, showing same canvas tiles to pick from -->
