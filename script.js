@@ -413,7 +413,26 @@ function enterWhiteboard(boardId) {
 }
 
 document.getElementById('closeBoardBtn').addEventListener('click', async () => {
-    const dataURL = canvas.toDataURL('image/png', 0.3);
+    // 캔버스 크기를 줄이고 JPEG 압축을 사용하여 Base64 용량 대폭 축소 (1MB 이하 무조건 보장)
+    const MAX_WIDTH = 600;
+    const scale = Math.min(1, MAX_WIDTH / canvas.width);
+    const finalW = canvas.width * scale;
+    const finalH = canvas.height * scale;
+    
+    // 오프스크린 캔버스에 리사이징 축소 복사
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = finalW;
+    tempCanvas.height = finalH;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // JPEG는 투명도를 검정색으로 만드므로 흰색 배경을 먼저 칠해줌
+    tempCtx.fillStyle = '#ffffff';
+    tempCtx.fillRect(0, 0, finalW, finalH);
+    tempCtx.drawImage(canvas, 0, 0, finalW, finalH);
+    
+    // WebP 또는 JPEG로 변환 & 60% 화질 (용량 엄청 줄어듦)
+    const dataURL = tempCanvas.toDataURL('image/jpeg', 0.6);
+    
     await update(ref(db, `whiteboards/${currentBoardId}`), { thumbnail: dataURL });
 
     if (streamUnsubscribe) streamUnsubscribe();
