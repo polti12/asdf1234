@@ -140,15 +140,22 @@ async function savePost() {
         saveBtn.disabled = true;
         saveBtn.innerText = "저장 중...";
 
-        await addDoc(collection(firestore, 'robot_board'), {
-            title: title || "무제",
-            author: author || "익명",
-            category: "Robot SW Lab",
-            content: content || "",
-            boardId: selectedSnapshotBoardId || "Unknown",
-            attachedImage: selectedSnapshotData ? selectedSnapshotData : null,
-            created_at: serverTimestamp()
-        });
+        // Promise.race to prevent infinite hanging
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
+        
+        await Promise.race([
+            addDoc(collection(firestore, 'robot_board'), {
+                title: title || "무제",
+                author: author || "익명",
+                category: "Robot SW Lab",
+                content: content || "",
+                boardId: selectedSnapshotBoardId || "Unknown",
+                // Do NOT send the massive base64 string 'attachedImage' here to prevent the 1MB Firestore limit crash
+                // We'll rely entirely on RTDB for the image via boardId
+                created_at: serverTimestamp()
+            }),
+            timeoutPromise
+        ]);
         
         alert("기록이 성공적으로 저장되었습니다!");
         document.getElementById('postFormOverlay').classList.remove('active');
@@ -159,12 +166,13 @@ async function savePost() {
         loadPosts();
     } catch (e) {
         console.error("Error adding document: ", e);
-        alert("저장 중 오류가 발생했습니다: " + e.message);
+        alert("저장 중 오류가 발생했습니다: " + (e.message === "Timeout" ? "서버 응답 지연 (데이터베이스 확인 필요)" : e.message));
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
     }
 }
+
 
 async function loadPosts() {
     const container = document.getElementById('postCardContainer');
@@ -188,12 +196,13 @@ async function loadPosts() {
             const date = post.created_at ? post.created_at.toDate().toLocaleDateString('ko-KR') : '—';
             const card = document.createElement('div');
             card.className = 'post-card';
+            
+            // Dynamic image rendering using an ID so we can fetch it asynchronously
+            const imgId = "img-" + Math.random().toString(36).substr(2, 9);
+            
             card.innerHTML = `
-                <div class="post-img">
-                    ${post.attachedImage
-                        ? `<img src="${post.attachedImage}" alt="Snapshot">`
-                        : '<div class="no-img">NO SNAPSHOT</div>'
-                    }
+                <div class="post-img" id="${imgId}">
+                    <div class="no-img">LOADING...</div>
                 </div>
                 <div class="post-info">
                     <div class="post-header">
@@ -206,6 +215,26 @@ async function loadPosts() {
                 </div>
             `;
             container.appendChild(card);
+            
+            // Asynchronously fetch the image from Realtime Database instead of Firestore
+            if (post.boardId && post.boardId !== "Unknown") {
+                get(ref(db, `whiteboards/${post.boardId}/thumbnail`)).then(snap => {
+                    const dataUrl = snap.val();
+                    const imgContainer = document.getElementById(imgId);
+                    if (imgContainer) {
+                        if (dataUrl) {
+                            imgContainer.innerHTML = `<img src="${dataUrl}" alt="Snapshot" loading="lazy">`;
+                        } else {
+                            imgContainer.innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
+                        }
+                    }
+                }).catch(() => {
+                    const imgContainer = document.getElementById(imgId);
+                    if (imgContainer) imgContainer.innerHTML = '<div class="no-img">ERROR</div>';
+                });
+            } else {
+                document.getElementById(imgId).innerHTML = '<div class="no-img">NO SNAPSHOT</div>';
+            }
         });
     } catch (e) {
         console.error('Error loading posts:', e);
