@@ -3,113 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Whiteboard Explorer</title>
-    <meta name="description" content="인터랙티브 3D 화이트보드 탐색기">
+    <title>Canvas Explorer</title>
+    <meta name="description" content="실시간 공유 화이트보드 탐색기">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <!-- Main 3D Gallery Lobby -->
+    <!-- ========== LOBBY + COMMUNITY (Single Scrollable Page) ========== -->
     <div id="lobbyView" class="view-container active">
+
+        <!-- Hero Header -->
         <header class="lobby-header">
-            <div class="logo">
-                <span class="logo-accent">CANVAS</span> EXPLORER
-            </div>
-            <p class="lobby-hint">아무 보드나 자유롭게 들어가서 그림을 그려보세요! (2시간마다 초기화)</p>
-            <div style="margin-top: 25px;">
-                <button class="nav-btn community-btn" id="openCommunityBtn"><i class="fa-solid fa-users"></i> 커뮤니티 혁신 기록</button>
-            </div>
-            <div id="lobbyNotice" class="notice-msg"></div>
+            <div class="logo"><span class="logo-accent">CANVAS</span> EXPLORER</div>
+            <p class="lobby-hint">아무 보드나 들어가서 자유롭게 그려보세요 — 2시간마다 초기화</p>
         </header>
 
+        <!-- Paginated Board Grid -->
         <section class="antigravity-section">
-            <button id="prevBtn" class="nav-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
+            <button id="prevBtn" class="nav-arrow prev" disabled><i class="fa-solid fa-chevron-left"></i></button>
             <div class="slider-viewport">
                 <div class="gallery-wrapper" id="agWrapper">
-                    <!-- script에서 동적 생성 -->
+                    <!-- Dynamically generated -->
                 </div>
             </div>
             <button id="nextBtn" class="nav-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
         </section>
-    </div>
 
-    <!-- Community View Container -->
-    <div id="communityView" class="view-container">
-        <div class="board-container">
-            <header class="board-header">
-                <div>
-                    <h1 class="board-title">INNOVATION <span class="board-count" id="count">0</span></h1>
+        <!-- Community Section (scroll down) -->
+        <section class="community-section" id="communitySection">
+            <div class="community-inner">
+                <div class="community-header">
+                    <div>
+                        <h2 class="community-title">ARCHIVE <span class="board-count" id="count">0</span></h2>
+                        <p class="community-sub">캔버스의 순간을 기록하세요</p>
+                    </div>
+                    <button class="write-btn" id="toggleWrite">
+                        <i class="fa-solid fa-pen-nib"></i> 기록 남기기
+                    </button>
                 </div>
-                <div style="display: flex; gap: 15px;">
-                    <button class="nav-btn" id="backToLobbyBtn"><i class="fa-solid fa-arrow-left"></i> 로비</button>
-                    <button class="nav-btn primary-btn" id="toggleWrite"><i class="fa-solid fa-pen-nib"></i> 기록 보관하기</button>
-                </div>
-            </header>
 
-            <div id="postCardContainer" class="card-grid">
-                <!-- Posts will be rendered here -->
+                <div id="postCardContainer" class="card-grid">
+                    <!-- Posts rendered here -->
+                </div>
             </div>
-        </div>
+        </section>
     </div>
 
-    <!-- Visual Board Selector Modal -->
-    <div id="boardSelectorModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>기록할 캔버스 스냅샷 선택</h2>
-                <button class="close-modal" id="closeSelectorBtn">&times;</button>
+    <!-- ========== BOARD SELECTOR OVERLAY ========== -->
+    <!-- This slides over the lobby grid, showing same canvas tiles to pick from -->
+    <div id="boardSelectorOverlay" class="board-selector-overlay">
+        <div class="selector-overlay-inner">
+            <div class="selector-top-bar">
+                <div>
+                    <h2 class="selector-title">SELECT CANVAS SNAPSHOT</h2>
+                    <p class="selector-sub">기록할 순간의 캔버스를 선택하세요</p>
+                </div>
+                <button class="close-selector-btn" id="closeSelectorBtn"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div id="selectorGrid" class="selector-grid">
-                <!-- 40 Boards will be rendered here -->
+                <!-- Populated by JS -->
             </div>
         </div>
     </div>
 
-    <!-- Post Form Overlay (Final Step) -->
+    <!-- ========== POST FORM OVERLAY ========== -->
     <div id="postFormOverlay" class="modal-overlay">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h2 id="selectedBoardTitle">BOARD SNAPSHOT</h2>
+        <div class="post-form-card">
+            <div class="post-form-left" id="snapshotPreview">
+                <!-- snapshot image fills this -->
             </div>
-            <div class="form-body">
-                <div class="form-group">
-                    <label>제목</label>
-                    <input type="text" id="postTitle" placeholder="제목을 입력하세요">
+            <div class="post-form-right">
+                <div class="post-form-header">
+                    <h2 id="selectedBoardTitle">BOARD SNAPSHOT</h2>
+                    <button class="close-modal" id="cancelPostBtn"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <div class="form-group">
-                    <label>작성자</label>
-                    <input type="text" id="postAuthor" placeholder="작성자를 입력하세요">
-                </div>
-                <div class="form-group">
-                    <label>내용</label>
-                    <textarea id="postContent" rows="5" placeholder="내용을 입력하세요"></textarea>
-                </div>
-                <div class="selected-snapshot-preview" id="snapshotPreview">
-                    <!-- Selected thumb will show here -->
-                </div>
-                <div class="modal-footer">
-                    <button class="nav-btn" id="cancelPostBtn">취소</button>
-                    <button class="nav-btn primary-btn" id="savePost">기록 저장</button>
+                <div class="form-body">
+                    <div class="form-group">
+                        <label>제목</label>
+                        <input type="text" id="postTitle" placeholder="제목을 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>작성자</label>
+                        <input type="text" id="postAuthor" placeholder="작성자를 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>내용</label>
+                        <textarea id="postContent" rows="6" placeholder="내용을 입력하세요"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="nav-btn primary-btn" id="savePost">기록 저장 <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Whiteboard Interactive View (Overlay) -->
+    <!-- ========== WHITEBOARD INTERACTIVE VIEW ========== -->
     <div id="whiteboardView" class="view-container">
         <div class="wb-header">
-            <div class="wb-title">
-                <span id="currentBoardName">Board</span>
-            </div>
+            <div class="wb-title"><span id="currentBoardName">Board</span></div>
             <div class="wb-actions">
                 <button id="closeBoardBtn" class="action-btn outline-btn"><i class="fa-solid fa-arrow-left"></i> 로비로 돌아가기</button>
             </div>
         </div>
-
         <div class="wb-workspace">
             <aside class="wb-toolbar">
                 <div class="tool-group">
@@ -118,11 +118,11 @@
                 </div>
                 <div class="divider"></div>
                 <div class="tool-group colors">
-                    <button class="color-btn active" data-color="#ffffff" style="background: #ffffff;"></button>
-                    <button class="color-btn" data-color="#ef4444" style="background: #ef4444;"></button>
-                    <button class="color-btn" data-color="#10b981" style="background: #10b981;"></button>
-                    <button class="color-btn" data-color="#3b82f6" style="background: #3b82f6;"></button>
-                    <button class="color-btn" data-color="#f59e0b" style="background: #f59e0b;"></button>
+                    <button class="color-btn active" data-color="#ffffff" style="background:#ffffff;"></button>
+                    <button class="color-btn" data-color="#ef4444" style="background:#ef4444;"></button>
+                    <button class="color-btn" data-color="#10b981" style="background:#10b981;"></button>
+                    <button class="color-btn" data-color="#3b82f6" style="background:#3b82f6;"></button>
+                    <button class="color-btn" data-color="#f59e0b" style="background:#f59e0b;"></button>
                 </div>
                 <div class="divider"></div>
                 <div class="tool-group flex-col">
@@ -135,14 +135,12 @@
                     <button class="tool-btn save" id="toolSave" title="이미지로 저장"><i class="fa-solid fa-download"></i></button>
                 </div>
             </aside>
-
             <div class="canvas-container" id="canvasContainer">
                 <canvas id="drawingCanvas"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- type="module" 필수 -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
