@@ -162,6 +162,7 @@ async function savePost(e) {
             category: "Robot SW Lab",
             content: content || "",
             boardId: selectedSnapshotBoardId || "Unknown",
+            thumbnail: selectedSnapshotData || "", // Add this field
             password: password, // 수정/삭제용 비밀번호 저장
             created_at: Date.now()
         });
@@ -250,7 +251,12 @@ async function loadPosts() {
             `;
                 container.appendChild(card);
                 
-                if (post.boardId && post.boardId !== "Unknown") {
+                if (post.thumbnail) {
+                    const imgContainer = document.getElementById(imgId);
+                    if (imgContainer) {
+                        imgContainer.innerHTML = `<img src="${post.thumbnail}" alt="Snapshot" loading="lazy">`;
+                    }
+                } else if (post.boardId && post.boardId !== "Unknown") {
                     get(ref(db, `whiteboards/${post.boardId}/thumbnail`)).then(snap => {
                         const dataUrl = snap.val();
                         const imgContainer = document.getElementById(imgId);
