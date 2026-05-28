@@ -639,10 +639,13 @@ body {
     .lobby-header { padding: 40px 40px 20px; }
     .slider-viewport { padding: 0 40px; }
     .gallery-page { 
-        grid-template-columns: 1fr;
-        grid-template-rows: repeat(6, 1fr);
+        display: flex;
+        flex-direction: column;
+        gap: 50px;
         overflow-y: auto;
     }
+    .gallery-item { height: auto; }
+    .gallery-item .img-box { height: auto; aspect-ratio: 4/3; }
     .antigravity-section { height: 80vh; min-height: 600px; }
     .community-inner { padding: 60px 40px; }
     .community-header { flex-direction: column; align-items: flex-start; gap: 20px; }
@@ -664,6 +667,7 @@ body {
     .tool-group { flex-direction: row; }
     .divider { width: 1px; height: 30px; }
     input[type=range] { transform: none; width: 80px; margin: 0; }
+    .canvas-container { min-height: 60vh; flex: 1 1 auto; width: 100%; }
 }
 
 .board-selector-overlay {
@@ -964,7 +968,7 @@ input[type=range]::-webkit-slider-runnable-track {
     border-radius: 3px; overflow: hidden;
     cursor: crosshair; border: 1px solid var(--border-color);
 }
-#drawingCanvas { position: absolute; top: 0; left: 0; background: transparent; }
+#drawingCanvas { position: absolute; top: 0; left: 0; background: transparent; touch-action: none; }
 
 /* Permission Panel */
 .permission-panel {
