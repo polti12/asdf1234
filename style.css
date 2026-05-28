@@ -661,13 +661,25 @@ body {
     .post-form-left { display: none; }
     .post-form-right { max-height: 80vh; }
     
-    /* Whiteboard Mobile Toolbar */
-    .wb-workspace { flex-direction: column; padding: 10px; gap: 10px; }
-    .wb-toolbar { width: 100%; height: auto; flex-direction: row; padding: 10px; overflow-x: auto; gap: 15px; }
-    .tool-group { flex-direction: row; }
-    .divider { width: 1px; height: 30px; }
-    input[type=range] { transform: none; width: 80px; margin: 0; }
-    .canvas-container { min-height: 60vh; flex: 1 1 auto; width: 100%; }
+    /* Whiteboard Mobile Toolbar Overlapping */
+    .wb-workspace { 
+        display: block !important; padding: 0 !important; gap: 0 !important; position: relative !important; height: 100% !important;
+    }
+    .wb-toolbar { 
+        position: absolute !important; bottom: 30px !important; left: 50% !important; transform: translateX(-50%) !important;
+        width: 90% !important; max-width: 400px !important; height: auto !important; 
+        flex-direction: row !important; padding: 12px 15px !important; overflow-x: auto !important; gap: 15px !important;
+        border-radius: 20px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important; z-index: 50 !important;
+        background: rgba(255, 255, 255, 0.95) !important; backdrop-filter: blur(5px) !important;
+        justify-content: flex-start !important;
+    }
+    .tool-group { flex-direction: row !important; }
+    .divider { width: 1px !important; height: 30px !important; }
+    input[type=range] { transform: none !important; width: 60px !important; margin: 0 !important; }
+    .canvas-container { 
+        position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; 
+        border: none !important; border-radius: 0 !important; margin: 0 !important; 
+    }
 }
 
 .board-selector-overlay {
