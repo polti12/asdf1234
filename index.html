@@ -15,10 +15,16 @@
     <div class="top-bar">
         <div class="container top-bar-container">
             <span class="d-day-badge">D-Day: 과정접수 마감까지 <strong>5일</strong></span>
-            <div class="auth-buttons">
-                <button class="btn-accessible" onclick="document.querySelector('[data-target=\'dashboard\']').click()">마이 대시보드</button>
-                <button class="btn-accessible btn-auth-trigger">로그인</button>
-                <button class="btn-accessible primary btn-auth-trigger">회원가입</button>
+            <div class="auth-buttons" id="auth-buttons-wrap">
+                <button class="btn-accessible" id="btn-dashboard-nav">마이 대시보드</button>
+                <div id="auth-logged-out">
+                    <button class="btn-accessible btn-auth-trigger" data-tab="login">로그인</button>
+                    <button class="btn-accessible primary btn-auth-trigger" data-tab="signup">회원가입</button>
+                </div>
+                <div id="auth-logged-in" hidden>
+                    <span class="user-greeting" id="user-greeting-text"></span>
+                    <button class="btn-accessible" id="btn-logout">로그아웃</button>
+                </div>
             </div>
         </div>
     </div>
@@ -88,10 +94,10 @@
                         <div class="dash-card-header">내 정보</div>
                         <div class="dash-card-body">
                             <div class="profile-info">
-                                <span class="label">성명</span> <span class="value">홍길동</span>
+                                <span class="label">성명</span> <span class="value" id="dash-user-name">—</span>
                             </div>
                             <div class="profile-info">
-                                <span class="label">학번</span> <span class="value">20261234</span>
+                                <span class="label">학번</span> <span class="value" id="dash-student-id">—</span>
                             </div>
                             <div class="profile-info">
                                 <span class="label">참여학과</span> <span class="value">반도체전자공학과</span>
@@ -590,34 +596,62 @@
         </section>
     </main>
 
-    <!-- 회원가입/로그인 모달 (A11y 준수) -->
-    <div id="signup-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+    <!-- 로그인/회원가입 모달 -->
+    <div id="signup-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-panel-title" hidden>
         <div class="modal-content">
-            <button id="modal-close" class="modal-close-btn" aria-label="회원가입 창 닫기">&times;</button>
-            <h2 id="modal-title" class="modal-title">수강신청을 위한 회원가입</h2>
-            <p class="modal-desc">대시보드 이용 및 수강신청 진행을 위해 로그인 또는 가입을 완료해주세요.</p>
-            
-            <form id="auth-form" novalidate>
-                <div class="form-group">
-                    <label for="student-id">학번 (아이디)</label>
-                    <input type="text" id="student-id" name="student-id" aria-required="true" aria-describedby="id-error" placeholder="예: 20261234">
-                    <span id="id-error" class="error-msg" aria-live="assertive"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="user-name">성명</label>
-                    <input type="text" id="user-name" name="user-name" aria-required="true" aria-describedby="name-error" placeholder="실명을 입력하세요">
-                    <span id="name-error" class="error-msg" aria-live="assertive"></span>
-                </div>
+            <button id="modal-close" class="modal-close-btn" aria-label="창 닫기">&times;</button>
 
-                <div class="form-group">
-                    <label for="password">비밀번호</label>
-                    <input type="password" id="password" name="password" aria-required="true" aria-describedby="pw-error" placeholder="8자리 이상 영문, 숫자 조합">
-                    <span id="pw-error" class="error-msg" aria-live="assertive"></span>
-                </div>
+            <!-- 탭 버튼 -->
+            <div class="modal-tabs" role="tablist">
+                <button class="modal-tab active" id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login">로그인</button>
+                <button class="modal-tab" id="tab-signup" role="tab" aria-selected="false" aria-controls="panel-signup">회원가입</button>
+            </div>
 
-                <button type="submit" class="btn-accessible primary btn-full">가입 및 대시보드 이동</button>
-            </form>
+            <!-- 로그인 패널 -->
+            <div id="panel-login" role="tabpanel" aria-labelledby="tab-login">
+                <h2 id="modal-panel-title" class="modal-title">로그인</h2>
+                <p class="modal-desc">학번과 비밀번호로 로그인하세요.</p>
+                <form id="login-form" novalidate>
+                    <div class="form-group">
+                        <label for="login-id">학번 (아이디)</label>
+                        <input type="text" id="login-id" name="login-id" aria-required="true" aria-describedby="login-id-error" placeholder="예: 20261234" autocomplete="username">
+                        <span id="login-id-error" class="error-msg" aria-live="assertive"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-pw">비밀번호</label>
+                        <input type="password" id="login-pw" name="login-pw" aria-required="true" aria-describedby="login-pw-error" placeholder="비밀번호 입력" autocomplete="current-password">
+                        <span id="login-pw-error" class="error-msg" aria-live="assertive"></span>
+                    </div>
+                    <span id="login-general-error" class="error-msg" style="display:block;margin-bottom:8px;" aria-live="assertive"></span>
+                    <button type="submit" class="btn-accessible primary btn-full">로그인</button>
+                    <p class="modal-switch-hint">계정이 없으신가요? <button type="button" class="link-btn" id="go-signup">회원가입</button></p>
+                </form>
+            </div>
+
+            <!-- 회원가입 패널 -->
+            <div id="panel-signup" role="tabpanel" aria-labelledby="tab-signup" hidden>
+                <h2 class="modal-title">회원가입</h2>
+                <p class="modal-desc">정보를 입력하여 계정을 만드세요.</p>
+                <form id="signup-form" novalidate>
+                    <div class="form-group">
+                        <label for="student-id">학번 (아이디)</label>
+                        <input type="text" id="student-id" name="student-id" aria-required="true" aria-describedby="id-error" placeholder="예: 20261234" autocomplete="username">
+                        <span id="id-error" class="error-msg" aria-live="assertive"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="user-name">성명</label>
+                        <input type="text" id="user-name" name="user-name" aria-required="true" aria-describedby="name-error" placeholder="실명을 입력하세요">
+                        <span id="name-error" class="error-msg" aria-live="assertive"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">비밀번호</label>
+                        <input type="password" id="password" name="password" aria-required="true" aria-describedby="pw-error" placeholder="8자리 이상 영문+숫자" autocomplete="new-password">
+                        <span id="pw-error" class="error-msg" aria-live="assertive"></span>
+                    </div>
+                    <button type="submit" class="btn-accessible primary btn-full">가입 완료</button>
+                    <p class="modal-switch-hint">이미 계정이 있으신가요? <button type="button" class="link-btn" id="go-login">로그인</button></p>
+                </form>
+            </div>
         </div>
     </div>
 

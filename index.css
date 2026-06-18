@@ -210,3 +210,23 @@ progress::-moz-progress-bar { background-color: var(--point-color); border-radiu
 .hero-subtext { font-size: 1.25rem; opacity: 0.9; margin-bottom: 40px; }
 .cta-button { font-family: inherit; font-size: 18px; font-weight: 800; padding: 15px 40px; background-color: var(--card-bg); color: var(--primary-color); border: none; border-radius: 50px; cursor: pointer; transition: var(--transition); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
 .cta-button:hover { transform: translateY(-3px); box-shadow: 0 15px 25px rgba(0,0,0,0.15); background-color: #f1f5f9; }
+
+/* ── 모달 탭 (로그인 / 회원가입) ── */
+.modal-tabs { display: flex; gap: 0; margin-bottom: 28px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border-color); }
+.modal-tab { flex: 1; padding: 13px; font-size: 1rem; font-weight: 700; font-family: inherit; border: none; cursor: pointer; background: #f8fafc; color: #64748b; transition: var(--transition); }
+.modal-tab.active { background: var(--primary-color); color: #fff; }
+.modal-tab:hover:not(.active) { background: #e8eff5; color: var(--primary-color); }
+
+/* ── 패널 전환 힌트 ── */
+.modal-switch-hint { text-align: center; margin-top: 18px; font-size: 0.9rem; color: #64748b; }
+.link-btn { background: none; border: none; color: var(--primary-color); font-weight: 700; font-size: inherit; font-family: inherit; cursor: pointer; text-decoration: underline; padding: 0; }
+.link-btn:hover { color: var(--point-color); }
+
+/* ── 상단바 로그인 상태 ── */
+#auth-logged-out, #auth-logged-in { display: flex; align-items: center; gap: 10px; }
+.user-greeting { font-weight: 700; color: var(--primary-color); font-size: 0.95rem; white-space: nowrap; }
+
+/* ── 토스트 알림 ── */
+#toast-notification { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1e293b; color: #fff; padding: 14px 28px; border-radius: 50px; font-size: 1rem; font-weight: 600; font-family: inherit; z-index: 9999; opacity: 0; transition: opacity 0.35s ease, transform 0.35s ease; pointer-events: none; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+#toast-notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
