@@ -3,200 +3,624 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas Explorer</title>
-    <meta name="description" content="실시간 공유 화이트보드 탐색기">
-    <link rel="stylesheet" href="style.css?v=6">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>동양미래대학교 첨단산업 부트캠프</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
 </head>
 <body>
+    <a href="#app-content" class="skip-link">본문 바로가기</a>
 
-    <!-- ========== LOBBY + COMMUNITY (Single Scrollable Page) ========== -->
-    <div id="lobbyView" class="view-container active">
-
-        <!-- Hero Header -->
-        <header class="lobby-header">
-            <div class="logo">
-                <span class="logo-accent">CANVAS</span> <span id="resetTimer">2:00:00</span> EXPLORER
+    <div class="top-bar">
+        <div class="container top-bar-container">
+            <span class="d-day-badge">D-Day: 과정접수 마감까지 <strong>5일</strong></span>
+            <div class="auth-buttons">
+                <button class="btn-accessible" onclick="document.querySelector('[data-target=\'dashboard\']').click()">마이 대시보드</button>
+                <button class="btn-accessible btn-auth-trigger">로그인</button>
+                <button class="btn-accessible primary btn-auth-trigger">회원가입</button>
             </div>
-            <p class="lobby-hint">아무 보드나 들어가서 자유롭게 그려보세요 — <span id="resetHintTime">0시간 0분</span> 뒤 초기화</p>
-        </header>
+        </div>
+    </div>
 
-        <!-- Paginated Board Grid -->
-        <section class="antigravity-section">
-            <button id="prevBtn" class="nav-arrow prev" disabled><i class="fa-solid fa-chevron-left"></i></button>
-            <div class="slider-viewport">
-                <div class="gallery-wrapper" id="agWrapper">
-                    <!-- Dynamically generated -->
-                </div>
-            </div>
-            <button id="nextBtn" class="nav-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
-        </section>
+    <nav class="navbar" aria-label="메인 내비게이션">
+        <div class="nav-container">
+            <div class="logo">동양미래대 <span>부트캠프</span></div>
+            <ul class="nav-links">
+                <li><a href="#" class="nav-link active" data-target="home">홈</a></li>
+                <li><a href="#" class="nav-link" data-target="about">사업단 소개</a></li>
+                <li><a href="#" class="nav-link" data-target="courses">교육과정안내/신청</a></li>
+                <li><a href="#" class="nav-link" data-target="facilities">교육시설장비</a></li>
+                <li><a href="#" class="nav-link" data-target="community">커뮤니티</a></li>
+                <li><a href="#" class="nav-link" data-target="jobs">채용정보</a></li>
+            </ul>
+            <button class="btn-accessible apply" onclick="document.querySelector('[data-target=\'courses\']').click()" aria-label="교육과정안내 및 신청 페이지로 이동">수강신청 하기</button>
+        </div>
+    </nav>
 
-        <!-- Community Section (scroll down) -->
-        <section class="community-section" id="communitySection">
-            <div class="community-inner">
-                <div class="community-header">
-                    <div>
-                        <h2 class="community-title">ARCHIVE <span class="board-count" id="count">0</span></h2>
-                        <p class="community-sub">캔버스의 순간을 기록하세요</p>
-                    </div>
-                    <button class="write-btn" id="toggleWrite">
-                        <i class="fa-solid fa-pen-nib"></i> 기록 남기기
-                    </button>
-                </div>
-
-                <div id="postCardContainer" class="card-grid">
-                    <!-- Posts rendered here -->
+    <main id="app-content">
+        <!-- 1. Home Page -->
+        <section id="home" class="page-section active">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1>반도체·로봇 첨단인재의 시작,<br><strong>동양미래대 부트캠프</strong></h1>
+                    <p class="hero-subtext">최대 <strong>150만 원 장학금 혜택</strong> 및 <strong>수료증 발급</strong></p>
+                    <button class="cta-button" onclick="document.querySelector('[data-target=\'courses\']').click()">모집중인 과정 바로가기</button>
                 </div>
             </div>
-        </section>
-
-        <!-- ========== CSSDA STYLE STATS FOOTER ========== -->
-        <section class="stats-section">
-            <div class="stats-hero-banner">
-                <div class="cssda-badge-wrapper">
-                    <div class="cssda-badge">
-                        <svg viewBox="0 0 100 100">
-                            <!-- Circular Text Path -->
-                            <path id="circlePath" d="M 50, 50 m -40, 0 a 40,40 0 1,1 80,0 a 40,40 0 1,1 -80,0" fill="none"></path>
-                            <text font-family="var(--font-main)" font-size="10.5" font-weight="900" letter-spacing="2">
-                                <textPath href="#circlePath" startOffset="0%">WEBSITE OF THE DAY • AWARDED •</textPath>
-                            </text>
-                            <text x="50" y="55" text-anchor="middle" font-family="var(--font-mono)" font-size="14" font-weight="700">W</text>
-                        </svg>
-                    </div>
-                    <div class="stats-project-info">
-                        <h3>Canvas Explorer</h3>
-                        <p class="stats-country">KOREA - REALTIME COLLABORATION</p>
-                    </div>
-                </div>
-                <div class="stats-intro-text">
-                    Canvas Explorer randomly generates 42 interactive whiteboards. Every stroke, participant, and created board is preserved in our global real-time infrastructure.
+            
+            <div class="logos-section container">
+                <p class="section-badge">주요 채용 협력 기업</p>
+                <div class="partner-logos">
+                    <div class="logo-box">램리서치코리아</div>
+                    <div class="logo-box">ASM 코리아</div>
+                    <div class="logo-box">에스에프에이</div>
+                    <div class="logo-box">원익IPS</div>
+                    <div class="logo-box">로보스타</div>
+                    <div class="logo-box">두산로보틱스</div>
+                    <div class="logo-box">한국미쓰비시전기</div>
                 </div>
             </div>
-
-            <div class="stats-bottom-panel">
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
-                        <div class="stat-val" id="statBoards">0</div>
-                        <div class="stat-label">TOTAL BOARDS</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
-                        <div class="stat-val" id="statLines">0<span>M</span></div>
-                        <div class="stat-label">DRAWN LENGTH</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
-                        <div class="stat-val" id="statVisitors">0</div>
-                        <div class="stat-label">VISITORS</div>
-                    </div>
-                    <div class="stat-item final-score">
-                        <div class="stat-val" id="statScore">9.85</div>
-                        <div class="stat-label">COMMUNITY SCORE</div>
-                    </div>
+            
+            <div class="gallery-section container">
+                <div class="section-header">
+                    <h2>교육 현장 갤러리</h2>
+                </div>
+                <div class="gallery-grid">
+                    <div class="gallery-item"><div class="gallery-placeholder" style="background-image: url('images/cleanroom_lab.png'); background-size: cover; background-position: center; color: transparent;">클린룸 실습 현장</div></div>
+                    <div class="gallery-item"><div class="gallery-placeholder" style="background-image: url('images/robot_arm.png'); background-size: cover; background-position: center; color: transparent;">협동로봇 제어 교육</div></div>
+                    <div class="gallery-item"><div class="gallery-placeholder" style="background-image: url('images/student_project.png'); background-size: cover; background-position: center; color: transparent;">기업 연계 프로젝트</div></div>
+                    <div class="gallery-item"><div class="gallery-placeholder" style="background-image: url('images/capstone_design.png'); background-size: cover; background-position: center; color: transparent;">캡스톤 경진대회</div></div>
                 </div>
             </div>
         </section>
-    </div>
 
+        <!-- 2. Dashboard Section -->
+        <section id="dashboard" class="page-section">
+            <div class="subpage-banner" style="background: linear-gradient(135deg, #FF6B00 0%, #cc5500 100%);">
+                <p>MY CAMPUS</p>
+                <h2>마이 대시보드</h2>
+            </div>
+            <div class="container" style="padding-top: 50px;">
+                <div class="dash-grid">
+                    <!-- Profile Card -->
+                    <div class="dash-card profile-card" tabindex="0">
+                        <div class="dash-card-header">내 정보</div>
+                        <div class="dash-card-body">
+                            <div class="profile-info">
+                                <span class="label">성명</span> <span class="value">홍길동</span>
+                            </div>
+                            <div class="profile-info">
+                                <span class="label">학번</span> <span class="value">20261234</span>
+                            </div>
+                            <div class="profile-info">
+                                <span class="label">참여학과</span> <span class="value">반도체전자공학과</span>
+                            </div>
+                            <div class="profile-info highlight">
+                                <span class="label">목표 트랙</span> <span class="value">반도체설비자동화 마이크로디그리</span>
+                            </div>
+                        </div>
+                    </div>
 
-    <!-- ========== BOARD SELECTOR OVERLAY ========== -->
-    <!-- This slides over the lobby grid, showing same canvas tiles to pick from -->
-    <div id="boardSelectorOverlay" class="board-selector-overlay">
-        <div class="selector-overlay-inner">
-            <div class="selector-top-bar">
-                <div>
-                    <h2 class="selector-title">SELECT CANVAS SNAPSHOT</h2>
-                    <p class="selector-sub">기록할 순간의 캔버스를 선택하세요</p>
+                    <!-- Progress Card -->
+                    <div class="dash-card progress-card" tabindex="0">
+                        <div class="dash-card-header">수강 이수 현황</div>
+                        <div class="dash-card-body">
+                            <p class="progress-summary">기준: 마이크로디그리 (4과목 & 10학점 이상)</p>
+                            
+                            <div class="progress-item">
+                                <label for="credit-progress">이수 학점 (현재 7학점 / 10학점)</label>
+                                <progress id="credit-progress" value="7" max="10" role="progressbar" aria-valuenow="7" aria-valuemin="0" aria-valuemax="10">70%</progress>
+                            </div>
+                            
+                            <div class="progress-item">
+                                <label for="course-progress">이수 과목 (현재 3과목 / 4과목)</label>
+                                <progress id="course-progress" value="3" max="4" role="progressbar" aria-valuenow="3" aria-valuemin="0" aria-valuemax="4">75%</progress>
+                            </div>
+
+                            <div class="current-courses-wrap">
+                                <h5>수강 중인 과목 목록</h5>
+                                <ul class="current-list">
+                                    <li>PLC 제어 <span class="badge-custom solid-navy float-right">Pass</span></li>
+                                    <li>PC기반제어 <span class="badge-custom solid-navy float-right">Pass</span></li>
+                                    <li>창의과제 <span class="badge-custom outline-blue float-right">수강중</span></li>
+                                    <li class="immersive-tag">몰입형: 협동로봇오퍼레이션 실무 <span class="badge-custom outline-blue float-right">수강중</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scholarship Card -->
+                    <div class="dash-card scholarship-card" tabindex="0">
+                        <div class="dash-card-header">장학금 혜택 현황</div>
+                        <div class="dash-card-body text-center">
+                            <p class="scholarship-title">누적 수령 장학금 총액</p>
+                            <div class="scholarship-amount">💰 1,200,000<span>원</span></div>
+                            <div class="scholarship-badges">
+                                <span class="badge-custom solid-navy" style="font-size: 1rem; padding: 10px 20px;">지급 완료: 120만원</span>
+                                <span class="badge-custom outline-blue" style="font-size: 1rem; padding: 10px 20px;">지급 대기: 30만원</span>
+                            </div>
+                            <p class="scholarship-note">*몰입형 과정 수료 시 추가 마일리지가 적립됩니다.</p>
+                        </div>
+                    </div>
                 </div>
-                <button class="close-selector-btn" id="closeSelectorBtn"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div id="selectorGrid" class="selector-grid">
-                <!-- Populated by JS -->
+        </section>
+
+        <!-- 3. About Section (사업단 소개) -->
+        <section id="about" class="page-section">
+            <div class="subpage-banner">
+                <p>DONGYANG MIRAE UNIVERSITY</p>
+                <h2>사업단 소개</h2>
             </div>
+            <div class="subpage-nav-wrapper">
+                <ul class="subpage-nav container">
+                    <li class="active"><a href="#">인사말</a></li>
+                    <li><a href="#">사업소개</a></li>
+                    <li><a href="#">조직도</a></li>
+                    <li><a href="#">협력기관</a></li>
+                    <li><a href="#">참여학과 및 교원</a></li>
+                    <li><a href="#">오시는 길</a></li>
+                </ul>
+            </div>
+            <div class="container" style="padding-top: 50px;">
+                <div class="greeting-content">
+                    <h3 class="page-title">인사말</h3>
+                    <div class="greeting-image-placeholder" style="background-image: url('images/campus_view.png'); background-size: cover; background-position: center; color: transparent;"><span>동양미래대학교 캠퍼스 전경(Placeholder)</span></div>
+                    <hr class="greeting-divider">
+                    <h4 class="greeting-subtitle">동양미래대학교 반도체 부트캠프사업 사업단장 인사말</h4>
+                    <div class="greeting-text">
+                        <p class="g-lead">안녕하십니까?<br><strong>동양미래대학교 <span class="text-blue">반도체 부트캠프사업단장</span>입니다.</strong></p>
+                        <p><strong>미래산업 사회로의 급속한 전환기에 반도체 산업은 국가 경제와 기술 혁신을 주도하는 핵심 분야로 자리 잡고 있습니다.<br>특히, <span class="text-blue">반도체 기술의 발전은 AI, 5G, 자동차, 바이오 산업 등</span> 다양한 첨단 산업의 성장과 맞물려 그 중요성이 더욱 부각되고 있습니다.</strong></p>
+                        <p>이에 동양미래대학교는 <strong class="text-blue">K-반도체 산업을 이끌어갈 전문 인재 양성을 목표</strong>로 반도체 부트캠프사업을 운영하고 있습니다. 본 사업의 교육 프로그램은 실무 중심의 교육과 현장 경험을 바탕으로 반도체 설계, 제조, 공정, 테스트 등에 필요한 반도체 설비 및 장비 운용 등 전반적인 반도체 관련 기술 역량을 배양하는데 중점을 두고 있습니다. 또한, 산학 협력을 통한 맞춤형 교육을 제공하여 기업이 필요로 하는 <strong>실무형 인재를 양성하고, 수료생들의 성공적인 취업을 적극 지원</strong>하고 있습니다.</p>
+                        <p>우리대학 반도체 부트캠프는 단순한 교육 프로그램을 넘어, 미래 반도체 산업을 이끌어 갈 창의적이고 도전적인 인재들이 꿈을 펼칠 수 있는 기회의 장이 될 것입니다.<br>아낌없는 관심과 성원을 부탁드리며, 반도체 산업의 미래를 함께 밝혀갈 여러분을 진심으로 환영합니다.</p>
+                        <p>감사합니다.</p>
+                        <p class="g-signature">동양미래대학교 <strong>반도체 부트캠프사업단장 김학성</strong></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Facilities Section (교육시설장비) -->
+        <section id="facilities" class="page-section">
+            <div class="subpage-banner" style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%);">
+                <p>DONGYANG MIRAE UNIVERSITY</p>
+                <h2>교육시설 및 장비</h2>
+            </div>
+            <div class="container" style="padding-top: 60px;">
+                <div class="facility-section-header"><h3>교육환경</h3></div>
+                <div class="env-grid-2">
+                    <div class="f-card"><div class="f-img-placeholder env-1" style="background-image: url('images/cleanroom_lab.png'); background-size: cover; background-position: center; color: transparent;">클린룸 이미지</div><div class="f-info"><h4>반도체클린룸</h4><p>3호관 109호</p></div></div>
+                    <div class="f-card"><div class="f-img-placeholder env-2" style="background-image: url('images/robot_arm.png'); background-size: cover; background-position: center; color: transparent;">로봇기술센터 이미지</div><div class="f-info"><h4>첨단반도체 로봇기술센터</h4><p>4호관 102호</p></div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Courses & Apply Section -->
+        <section id="courses" class="page-section">
+            <div class="container" style="padding-top: 40px;">
+                <div class="section-header">
+                    <h2>교육과정안내 및 수강신청</h2>
+                    <p>호버된 카드 내 '수강신청' 클릭 시 로그인/회원가입으로 연동됩니다.</p>
+                </div>
+
+                <div class="course-level-title">
+                    <span class="badge cat-micro" style="font-size:1rem; padding: 6px 12px; margin-bottom: 20px;">중급 과정</span>
+                </div>
+                
+                <div class="expandable-course-grid">
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체설비자동화 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체설비자동화</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>PLC제어</li>
+                                <li>PC기반제어</li>
+                                <li>창의과제</li>
+                                <li class="immersive-tag">몰입형: 협동로봇오퍼레이션 실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체장비제어 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체장비제어</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>PLC프로그래밍</li>
+                                <li>캡스톤디자인</li>
+                                <li class="immersive-tag">몰입형: PLC 실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Middle 3-->
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체설비운용 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체설비운용</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>PLC프로그래밍</li>
+                                <li>반도체설비</li>
+                                <li>공압제어</li>
+                                <li>반도체제조공정</li>
+                                <li class="immersive-tag">몰입형: 장비유지보수 실무/PLC실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Middle 4-->
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체설비유지보수 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체설비유지보수</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>PLC프로그래밍</li>
+                                <li>마이크로컨트롤러</li>
+                                <li>PC기반제어</li>
+                                <li>반도체기초</li>
+                                <li class="immersive-tag">몰입형: 위험물관리 실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Middle 5-->
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체레이아웃설계 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체레이아웃설계</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>전자회로</li>
+                                <li>집적회로설계</li>
+                                <li>반도체특성실험</li>
+                                <li>반도체레이아웃</li>
+                                <li class="immersive-tag">몰입형: 레이아웃설계 실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Middle 6-->
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체공정측정분석 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체공정측정분석</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>반도체특성실험</li>
+                                <li>반도체제조공정</li>
+                                <li>반도체장비실무</li>
+                                <li>종합설계</li>
+                                <li class="immersive-tag">몰입형: 공정장비 실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="course-level-title" style="margin-top:50px;">
+                    <span class="badge" style="background:#4b5563; color:white; font-size:1rem; padding: 6px 12px; margin-bottom: 20px;">고급 과정</span>
+                </div>
+
+                <div class="expandable-course-grid">
+                    <!-- Advanced 1-->
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체장비S/W운용 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체장비S/W운용</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>인공지능개론</li>
+                                <li>자동화통신</li>
+                                <li>캡스톤디자인</li>
+                                <li>PC기반제어</li>
+                                <li class="immersive-tag">몰입형: 장비S/W 실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Advanced 2-->
+                    <article class="expand-card" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="반도체설비설계 과정 상세 정보 보기">
+                        <div class="expand-card-header">
+                            <h4 class="expand-title">반도체설비설계</h4>
+                            <p class="expand-req-text">[이수기준: 4과목 / 10학점 이상 필수]</p>
+                        </div>
+                        <div class="expand-card-content">
+                            <h5>세부 교과목 리스트</h5>
+                            <ul class="sub-course-list">
+                                <li>캡스톤디자인</li>
+                                <li>반도체설비</li>
+                                <li>창의과제</li>
+                                <li class="immersive-tag">몰입형: 도면이해, 솔리드웍스, 기구설계 실무</li>
+                            </ul>
+                            <div class="expand-action">
+                                <button class="btn-accessible">과정문의</button>
+                                <button class="btn-accessible primary btn-apply-course">수강신청</button>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. 채용정보 (Jobs) -->
+        <section id="jobs" class="page-section">
+            <div class="container" style="padding-top: 50px;">
+                <h3 class="page-title" style="margin-bottom: 30px;">참여기업</h3>
+                
+                <div class="jobs-table-wrap">
+                    <table class="jobs-table">
+                        <thead>
+                            <tr>
+                                <th>번호</th>
+                                <th>기업체명</th>
+                                <th>대표자명</th>
+                                <th>지역</th>
+                                <th>참여기간</th>
+                                <th>담당자</th>
+                                <th>협약여부</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>43</td>
+                                <td>(주)아나패스</td>
+                                <td></td>
+                                <td>서울</td>
+                                <td>2026-05-22 - 2026-05-23</td>
+                                <td></td>
+                                <td><span class="badge-custom outline-blue">미협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>42</td>
+                                <td>(주)인터그라텍</td>
+                                <td></td>
+                                <td>서울</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>41</td>
+                                <td>(주)풍진기언</td>
+                                <td></td>
+                                <td>경기</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>40</td>
+                                <td>(주)유콘텍</td>
+                                <td></td>
+                                <td>서울</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>39</td>
+                                <td>(주)FST</td>
+                                <td></td>
+                                <td>경기</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>38</td>
+                                <td>(주)파스텍</td>
+                                <td></td>
+                                <td>경기</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>37</td>
+                                <td>씨에스케이(주)</td>
+                                <td></td>
+                                <td>경기</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>36</td>
+                                <td>(주)에이플</td>
+                                <td></td>
+                                <td>경기</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>35</td>
+                                <td>에스피엠텍(주)</td>
+                                <td></td>
+                                <td>경기</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                            <tr>
+                                <td>34</td>
+                                <td>(주)위센스</td>
+                                <td></td>
+                                <td>서울</td>
+                                <td>2026-01-15 - 2026-01-16</td>
+                                <td></td>
+                                <td><span class="badge-custom solid-navy">협약</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <div class="pagination">
+                    <button class="page-btn">처음</button>
+                    <button class="page-btn">이전</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">2</button>
+                    <button class="page-btn">3</button>
+                    <button class="page-btn">4</button>
+                    <button class="page-btn">5</button>
+                    <button class="page-btn">다음</button>
+                    <button class="page-btn">맨끝</button>
+                </div>
+
+                <!-- Search Options -->
+                <div class="search-options">
+                    <select class="search-select">
+                        <option>--협약여부--</option>
+                    </select>
+                    <select class="search-select">
+                        <option>--지역--</option>
+                        <option>서울</option>
+                        <option>경기</option>
+                    </select>
+                    <select class="search-select">
+                        <option>--검색조건--</option>
+                        <option>기업체명</option>
+                    </select>
+                    <input type="text" class="search-input" placeholder="검색어를 입력하세요">
+                    <button class="btn-search dark">검색</button>
+                    <button class="btn-search dark">전체</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. Community (With added examples) -->
+        <section id="community" class="page-section">
+            <div class="subpage-banner" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+                <p>BOOTCAMP COMMUNITY</p>
+                <h2>수강후기 커뮤니티</h2>
+            </div>
+            <div class="container" style="padding-top: 40px;">
+                
+                <div class="review-grid">
+                    <!-- 예시 후기 1 -->
+                    <article class="review-card" tabindex="0">
+                        <div class="review-header">
+                            <span class="badge cat-micro">반도체설비자동화</span>
+                            <span class="rating" aria-label="별점 5점 만점에 5점">⭐⭐⭐⭐⭐</span>
+                        </div>
+                        <h4 class="review-title">로봇 오퍼레이션 몰입형 과정, 현장감이 엄청납니다!</h4>
+                        <p class="review-body">단순 이론이 아니라 실제 두산로보틱스 협동로봇을 다룰 수 있어서 너무 좋았어요. 확실히 취업 준비에 큰 실무 경험이 될 것 같습니다. 강추합니다.</p>
+                        <div class="review-footer">
+                            <span class="author">홍*동 (전자통신공학과)</span>
+                            <span class="date">2026.05.20</span>
+                        </div>
+                    </article>
+
+                    <!-- 예시 후기 2 -->
+                    <article class="review-card" tabindex="0">
+                        <div class="review-header">
+                            <span class="badge" style="background:#4b5563; color:white;">고급: 반도체설비설계</span>
+                            <span class="rating" aria-label="별점 5점 만점에 4점">⭐⭐⭐⭐☆</span>
+                        </div>
+                        <h4 class="review-title">도면 이해부터 기구설계까지 한 번에</h4>
+                        <p class="review-body">Solidworks를 기초부터 실무 수준까지 끌어올려주는 수업입니다. 팀 프로젝트로 진행되는 캡스톤디자인이 조금 빡세긴 하지만 남는 게 많아요.</p>
+                        <div class="review-footer">
+                            <span class="author">이*준 (기계공학과)</span>
+                            <span class="date">2026.04.15</span>
+                        </div>
+                    </article>
+
+                    <!-- 예시 후기 3 -->
+                    <article class="review-card" tabindex="0">
+                        <div class="review-header">
+                            <span class="badge cat-micro">반도체공정측정분석</span>
+                            <span class="rating" aria-label="별점 5점 만점에 5점">⭐⭐⭐⭐⭐</span>
+                        </div>
+                        <h4 class="review-title">클린룸 실습 최고!!</h4>
+                        <p class="review-body">실제 반도체 클린룸에 들어가서 방진복 입고 공정장비 실습한 건 잊지 못할 경험입니다. 취업 면접에서 할 말이 정말 많아졌습니다.</p>
+                        <div class="review-footer">
+                            <span class="author">김*아 (화학공학과)</span>
+                            <span class="date">2026.03.10</span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 회원가입/로그인 모달 (A11y 준수) -->
+    <div id="signup-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+        <div class="modal-content">
+            <button id="modal-close" class="modal-close-btn" aria-label="회원가입 창 닫기">&times;</button>
+            <h2 id="modal-title" class="modal-title">수강신청을 위한 회원가입</h2>
+            <p class="modal-desc">대시보드 이용 및 수강신청 진행을 위해 로그인 또는 가입을 완료해주세요.</p>
+            
+            <form id="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="student-id">학번 (아이디)</label>
+                    <input type="text" id="student-id" name="student-id" aria-required="true" aria-describedby="id-error" placeholder="예: 20261234">
+                    <span id="id-error" class="error-msg" aria-live="assertive"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="user-name">성명</label>
+                    <input type="text" id="user-name" name="user-name" aria-required="true" aria-describedby="name-error" placeholder="실명을 입력하세요">
+                    <span id="name-error" class="error-msg" aria-live="assertive"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" name="password" aria-required="true" aria-describedby="pw-error" placeholder="8자리 이상 영문, 숫자 조합">
+                    <span id="pw-error" class="error-msg" aria-live="assertive"></span>
+                </div>
+
+                <button type="submit" class="btn-accessible primary btn-full">가입 및 대시보드 이동</button>
+            </form>
         </div>
     </div>
 
-    <!-- ========== POST FORM OVERLAY ========== -->
-    <div id="postFormOverlay" class="modal-overlay">
-        <div class="post-form-card">
-            <div class="post-form-left" id="snapshotPreview">
-                <!-- snapshot image fills this -->
-            </div>
-            <div class="post-form-right">
-                <div class="post-form-header">
-                    <h2 id="selectedBoardTitle">BOARD SNAPSHOT</h2>
-                    <button class="close-modal" id="cancelPostBtn"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="form-body">
-                    <div class="form-group">
-                        <label>제목</label>
-                        <input type="text" id="postTitle" placeholder="제목을 입력하세요">
-                    </div>
-                    <div class="form-group">
-                        <label>작성자</label>
-                        <input type="text" id="postAuthor" placeholder="작성자를 입력하세요">
-                    </div>
-                    <div class="form-group">
-                        <label>내용</label>
-                        <textarea id="postContent" rows="6" placeholder="내용을 입력하세요"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>비밀번호 (수정/삭제용)</label>
-                        <input type="password" id="postPassword" placeholder="기록을 관리할 비밀번호">
-                    </div>
-                    <div class="modal-footer">
-                        <button class="nav-btn primary-btn" id="savePost">기록 저장 <i class="fa-solid fa-arrow-right"></i></button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========== WHITEBOARD INTERACTIVE VIEW ========== -->
-    <div id="whiteboardView" class="view-container">
-        <div class="wb-header">
-            <div class="wb-title"><span id="currentBoardName">Board</span></div>
-            <div class="wb-actions">
-                <button id="closeBoardBtn" class="action-btn outline-btn"><i class="fa-solid fa-arrow-left"></i> 로비로 돌아가기</button>
-            </div>
-        </div>
-        <div class="wb-workspace">
-            <aside class="wb-toolbar">
-                <div class="tool-group">
-                    <button class="tool-btn active" id="toolPen" title="펜"><i class="fa-solid fa-pen"></i></button>
-                    <button class="tool-btn" id="toolEraser" title="지우개"><i class="fa-solid fa-eraser"></i></button>
-                </div>
-                <div class="divider"></div>
-                <div class="tool-group colors">
-                    <button class="color-btn active" data-color="#ffffff" style="background:#ffffff;"></button>
-                    <button class="color-btn" data-color="#ef4444" style="background:#ef4444;"></button>
-                    <button class="color-btn" data-color="#10b981" style="background:#10b981;"></button>
-                    <button class="color-btn" data-color="#3b82f6" style="background:#3b82f6;"></button>
-                    <button class="color-btn" data-color="#f59e0b" style="background:#f59e0b;"></button>
-                </div>
-                <div class="divider"></div>
-                <div class="tool-group flex-col">
-                    <label class="tool-label">굵기</label>
-                    <input type="range" id="lineWidth" min="1" max="50" value="5">
-                </div>
-                <div class="divider"></div>
-                <div class="tool-group">
-                    <button class="tool-btn danger" id="toolClear" title="모두 지우기"><i class="fa-solid fa-trash-can"></i></button>
-                    <button class="tool-btn save" id="toolSave" title="이미지로 저장"><i class="fa-solid fa-download"></i></button>
-                </div>
-            </aside>
-            <div class="canvas-container" id="canvasContainer">
-                <canvas id="drawingCanvas"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <script type="module" src="script.js?v=3"></script>
+    <script src="app.js"></script>
 </body>
 </html>
